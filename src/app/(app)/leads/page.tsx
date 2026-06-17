@@ -132,7 +132,7 @@ export default function LeadsPage() {
   return (
     <div>
       <PageHeader
-        breadcrumbs={[{ label: "Suburban Toppers CRM" }, { label: "Leads & Outreach" }]}
+        breadcrumbs={[{ label: "Suburban Toppers" }, { label: "Leads & Outreach" }]}
         title="Leads & Outreach"
         actions={
           <>

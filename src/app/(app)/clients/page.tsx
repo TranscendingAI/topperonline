@@ -139,7 +139,7 @@ function ClientsPageInner() {
   return (
     <div>
       <PageHeader
-        breadcrumbs={[{ label: "Suburban Toppers CRM" }, { label: "Clients" }]}
+        breadcrumbs={[{ label: "Suburban Toppers" }, { label: "Clients" }]}
         title="Clients"
         actions={
           <>

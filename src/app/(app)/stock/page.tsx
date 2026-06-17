@@ -60,7 +60,7 @@ export default function StockPage() {
   return (
     <div>
       <PageHeader
-        breadcrumbs={[{ label: "Suburban Toppers CRM" }, { label: "Stock" }]}
+        breadcrumbs={[{ label: "Suburban Toppers" }, { label: "Stock" }]}
         title="Stock"
         actions={
           <>

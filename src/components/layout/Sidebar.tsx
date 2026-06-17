@@ -101,7 +101,7 @@ export function Sidebar() {
               transition: "opacity 150ms ease-in-out 50ms",
             }}
           >
-            Suburban Toppers CRM
+            Topper Online
           </span>
         )}
       </div>

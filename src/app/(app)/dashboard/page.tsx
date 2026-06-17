@@ -89,7 +89,7 @@ export default function DashboardPage() {
   return (
     <div>
       <PageHeader
-        breadcrumbs={[{ label: "Suburban Toppers CRM" }, { label: "Dashboard" }]}
+        breadcrumbs={[{ label: "Suburban Toppers" }, { label: "Dashboard" }]}
         title="Dashboard"
       />
 

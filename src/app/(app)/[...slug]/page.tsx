@@ -64,7 +64,7 @@ export default async function PlaceholderPage({
       <header className="flex items-end justify-between mb-24 pb-24 border-b border-chalk">
         <div>
           <nav className="text-slate mb-8" style={{ fontSize: "13px" }}>
-            <span>Suburban Toppers CRM</span>
+            <span>Suburban Toppers</span>
             <span className="mx-8">›</span>
             <span className="text-graphite">{meta.title}</span>
           </nav>
