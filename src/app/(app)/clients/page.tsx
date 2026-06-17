@@ -37,6 +37,8 @@ import {
   dateColumn,
   currencyColumn,
   statusBadgeColumn,
+  statusVariantAdapter,
+  statusLabelAdapter,
 } from "@/lib/columns";
 import { formatPhone } from "@/lib/utils";
 import type { Status } from "@/lib/mock-data";
@@ -118,6 +120,8 @@ export default function ClientsPage() {
     statusBadgeColumn<Client>({
       header: "Status",
       accessor: (c) => c.lastInvoiceStatus as Status,
+      getVariant: statusVariantAdapter,
+      getLabel: statusLabelAdapter,
     }),
   ];
 

@@ -25,8 +25,14 @@ import type { LucideIcon } from "lucide-react";
 import { Eye, Pencil, Trash2 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { GhostIconButton } from "@/components/ui/GhostIconButton";
-import { statusToVariant, statusLabel, type Status } from "./mock-data";
+import { statusToVariant as _statusToVariant, statusLabel as _statusLabel, type Status } from "./mock-data";
+import type { StatusVariant } from "@/components/ui/StatusBadge";
 import { formatCurrency, formatPhone } from "./utils";
+// statusToVariant / statusLabel are imported by callers and passed to
+// statusBadgeColumn. They are NOT used directly in this file anymore.
+// The unused alias prevents accidental removal of the import.
+void _statusToVariant;
+void _statusLabel;
 
 declare module "@tanstack/react-table" {
   // Allow `meta` to be passed to columns for custom config
@@ -119,8 +125,12 @@ export function dateColumn<T>(opts: DateColumnOpts<T>): ColumnDef<T> {
 
 interface StatusColumnOpts<T> {
   header: string;
-  /** Accessor returning the status value */
-  accessor: (row: T) => Status;
+  /** Accessor returning the raw status value */
+  accessor: (row: T) => string;
+  /** Maps the raw status to a StatusVariant (green/amber/red/blue/purple) */
+  getVariant: (status: string) => StatusVariant;
+  /** Maps the raw status to a display label */
+  getLabel: (status: string) => string;
 }
 
 export function statusBadgeColumn<T>(opts: StatusColumnOpts<T>): ColumnDef<T> {
@@ -129,7 +139,7 @@ export function statusBadgeColumn<T>(opts: StatusColumnOpts<T>): ColumnDef<T> {
     header: opts.header,
     cell: ({ row }) => {
       const status = opts.accessor(row.original);
-      return <StatusBadge variant={statusToVariant(status)}>{statusLabel(status)}</StatusBadge>;
+      return <StatusBadge variant={opts.getVariant(status)}>{opts.getLabel(status)}</StatusBadge>;
     },
     sortingFn: (a, b) => {
       const sa = opts.accessor(a.original);
@@ -138,6 +148,24 @@ export function statusBadgeColumn<T>(opts: StatusColumnOpts<T>): ColumnDef<T> {
     },
   };
 }
+
+// ============================================================================
+// Adapter helpers — for callers using the strict Status type
+// ============================================================================
+// The `statusToVariant` and `statusLabel` functions in mock-data accept
+// a strict `Status` union, but this column helper accepts `string` (because
+// different data sources may use different status vocabularies). These
+// adapters cast the strict type into the wider string-accepting shape.
+
+/** Wrap a strict (s: Status) => X function to accept (s: string) => X */
+function widen<T extends string, R>(fn: (s: T) => R): (s: string) => R {
+  return (s: string) => fn(s as T);
+}
+
+/** Use with statusToVariant from mock-data */
+export const statusVariantAdapter = widen<Status, StatusVariant>(_statusToVariant);
+/** Use with statusLabel from mock-data */
+export const statusLabelAdapter = widen<Status, string>(_statusLabel);
 
 interface ActionsColumnAction<T> {
   icon: LucideIcon;
@@ -178,16 +206,16 @@ export function actionsColumn<T>(actions: ActionsColumnAction<T>[]): ColumnDef<T
 }
 
 /** Standard view/edit/delete action set, used on most list pages. */
-export function defaultRowActions<T>(opts: {
+export function defaultRowActions<T>(opts?: {
   onView?: (row: T) => void;
   onEdit?: (row: T) => void;
   onDelete?: (row: T) => void;
   viewHref?: (row: T) => string;
 }): ColumnDef<T> {
   return actionsColumn<T>([
-    { icon: Eye, label: "View", onClick: opts.onView, href: opts.viewHref },
-    { icon: Pencil, label: "Edit", onClick: opts.onEdit },
-    { icon: Trash2, label: "Delete", onClick: opts.onDelete, color: "var(--color-status-red)" },
+    { icon: Eye, label: "View", onClick: opts?.onView, href: opts?.viewHref },
+    { icon: Pencil, label: "Edit", onClick: opts?.onEdit },
+    { icon: Trash2, label: "Delete", onClick: opts?.onDelete, color: "var(--color-status-red)" },
   ]);
 }
 
