@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+/* =============================================================================
+ * SUBURBAN TOPPERS CRM — DESIGN TOKENS
+ * Single source of truth. Edit values here, they propagate everywhere.
+ * Source: /DESIGN.md (style reference)
+ * ============================================================================= */
+
+@theme {
+  /* ----- Core Colors (the only chromatic accent is Signal Orange) ----- */
+  --color-signal-orange: #ff682c;
+  --color-sienna-bronze: #816729;
+  --color-carbon: #202020;
+  --color-graphite: #4d4d4d;
+  --color-slate: #828282;
+  --color-fog: #f5f5f5;
+  --color-mist: #efefef;
+  --color-chalk: #e8e8e8;
+  --color-paper: #ffffff;
+
+  /* ----- Semantic Status Colors (badges & inline indicators only) ----- */
+  --color-status-green: #22c55e;
+  --color-status-amber: #f59e0b;
+  --color-status-red: #ef4444;
+  --color-status-blue: #3b82f6;
+  --color-status-purple: #8b5cf6;
+
+  /* ----- Surfaces ----- */
+  --color-canvas: #efefef;       /* page background */
+  --color-surface: #ffffff;      /* card surface */
+  --color-inset: #f5f5f5;        /* alt row, sidebar hover */
+  --color-divider: #e8e8e8;      /* chalk, input borders */
+
+  /* ----- Typography: Families ----- */
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-inter: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* ----- Typography: Spacing (custom letter-spacing values) ----- */
+  --tracking-page-title: -0.48px;
+  --tracking-subheading: -0.64px;
+  --tracking-heading: -0.80px;
+  --tracking-kpi-value: -0.64px;
+
+  /* ----- Spacing Scale (4px base unit) ----- */
+  --spacing-4: 4px;
+  --spacing-8: 8px;
+  --spacing-12: 12px;
+  --spacing-16: 16px;
+  --spacing-20: 20px;
+  --spacing-24: 24px;
+  --spacing-32: 32px;
+  --spacing-36: 36px;
+  --spacing-40: 40px;
+  --spacing-60: 60px;
+
+  /* ----- Border Radius ----- */
+  --radius-sm: 4px;
+  --radius-md: 8px;     /* cards, inputs */
+  --radius-lg: 12px;    /* modals */
+  --radius-xl: 20px;    /* buttons, badges, tags */
+  --radius-full: 200px; /* nav capsule */
+}
+
+/* -----------------------------------------------------------------------------
+ * Base layer
+ * --------------------------------------------------------------------------- */
+html, body {
+  background: var(--color-canvas);
+  color: var(--color-carbon);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+body {
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Smooth focus ring for keyboard nav (matches Carbon border on focus) */
+:focus-visible {
+  outline: 2px solid var(--color-carbon);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Reset button default styling */
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
