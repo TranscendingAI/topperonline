@@ -117,15 +117,28 @@ export function Sidebar() {
         aria-label="Main"
       >
         <ul className="flex flex-col">
-          {NAV_ITEMS.map((item) => (
-            <li key={item.label} className="mb-4 last:mb-0">
-              <NavRow
-                item={item}
-                pathname={pathname}
-                collapsed={collapsed}
-              />
-            </li>
-          ))}
+          {NAV_ITEMS.map((item) => {
+            const hasChildren = !!item.children?.length;
+            if (hasChildren) {
+              return (
+                <ExpandableGroup
+                  key={item.label}
+                  item={item}
+                  pathname={pathname}
+                  collapsed={collapsed}
+                />
+              );
+            }
+            return (
+              <li key={item.label} className="mb-4 last:mb-0">
+                <LeafLink
+                  item={item}
+                  pathname={pathname}
+                  collapsed={collapsed}
+                />
+              </li>
+            );
+          })}
         </ul>
       </nav>
 
@@ -193,21 +206,6 @@ export function Sidebar() {
       </div>
     </aside>
   );
-}
-
-function NavRow({
-  item,
-  pathname,
-  collapsed,
-}: {
-  item: NavItem;
-  pathname: string;
-  collapsed: boolean;
-}) {
-  if (item.children?.length) {
-    return <ExpandableGroup item={item} pathname={pathname} collapsed={collapsed} />;
-  }
-  return <LeafLink item={item} pathname={pathname} collapsed={collapsed} />;
 }
 
 function LeafLink({
@@ -289,37 +287,39 @@ function ExpandableGroup({
 
   if (collapsed) {
     return (
-      <Link
-        href={item.children![0].href}
-        title={item.label}
-        className={cn(
-          "relative flex items-center justify-center rounded-md transition-colors",
-          childActive ? "bg-fog" : "hover:bg-fog"
-        )}
-        style={{
-          width: `${ICON_BUTTON}px`,
-          height: `${ICON_BUTTON}px`,
-          margin: "0 auto",
-        }}
-      >
-        {childActive && (
-          <span
-            className="absolute bg-signal-orange rounded-r-sm"
-            style={{
-              left: 0,
-              top: "8px",
-              bottom: "8px",
-              width: `${SIGNAL_BAR}px`,
-            }}
-            aria-hidden="true"
+      <li className="mb-4 last:mb-0">
+        <Link
+          href={item.children![0].href}
+          title={item.label}
+          className={cn(
+            "relative flex items-center justify-center rounded-md transition-colors",
+            childActive ? "bg-fog" : "hover:bg-fog"
+          )}
+          style={{
+            width: `${ICON_BUTTON}px`,
+            height: `${ICON_BUTTON}px`,
+            margin: "0 auto",
+          }}
+        >
+          {childActive && (
+            <span
+              className="absolute bg-signal-orange rounded-r-sm"
+              style={{
+                left: 0,
+                top: "8px",
+                bottom: "8px",
+                width: `${SIGNAL_BAR}px`,
+              }}
+              aria-hidden="true"
+            />
+          )}
+          <Icon
+            size={20}
+            strokeWidth={2}
+            className={childActive ? "text-signal-orange" : "text-graphite"}
           />
-        )}
-        <Icon
-          size={20}
-          strokeWidth={2}
-          className={childActive ? "text-signal-orange" : "text-graphite"}
-        />
-      </Link>
+        </Link>
+      </li>
     );
   }
 
@@ -327,7 +327,7 @@ function ExpandableGroup({
   const [open, setOpen] = useState(childActive);
 
   return (
-    <>
+    <li className="mb-4 last:mb-0">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -369,7 +369,7 @@ function ExpandableGroup({
           ))}
         </ul>
       )}
-    </>
+    </li>
   );
 }
 
