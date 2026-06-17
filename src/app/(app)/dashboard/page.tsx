@@ -226,7 +226,8 @@ export default function DashboardPage() {
             enablePagination={false}
           />
           <FunnelCard
-            title="AI Leads Pipeline"
+            title="Lead Pipeline"
+            subtitle={`${DASHBOARD_METRICS.pipelineCounts.new_lead + DASHBOARD_METRICS.pipelineCounts.ai_contacted + DASHBOARD_METRICS.pipelineCounts.responded + DASHBOARD_METRICS.pipelineCounts.appointment_set + DASHBOARD_METRICS.pipelineCounts.confirmed_sale} active leads`}
             stages={[
               { label: "New Lead", count: DASHBOARD_METRICS.pipelineCounts.new_lead, href: "/leads?stage=new_lead" },
               { label: "AI Contacted", count: DASHBOARD_METRICS.pipelineCounts.ai_contacted, href: "/leads?stage=ai_contacted" },

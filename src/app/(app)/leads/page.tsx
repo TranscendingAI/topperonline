@@ -338,16 +338,14 @@ export default function LeadsPage() {
           </div>
         </div>
 
-        {/* === Pipeline funnel summary (reuses FunnelCard from Phase 4a) === */}
+        {/* === Pipeline summary (StageCard row) === */}
         <FunnelCard
-          title="AI Leads Pipeline — Value Distribution"
-          stages={[
-            { label: "New Lead", count: stageTotals.new_lead.count },
-            { label: "AI Contacted", count: stageTotals.ai_contacted.count },
-            { label: "Responded", count: stageTotals.responded.count },
-            { label: "Appointment Set", count: stageTotals.appointment_set.count },
-            { label: "Confirmed Sale", count: stageTotals.confirmed_sale.count },
-          ]}
+          title="Lead Pipeline"
+          subtitle={`${STAGES.reduce((sum, s) => sum + stageTotals[s].count, 0)} active leads`}
+          stages={STAGES.map((s) => ({
+            label: PIPELINE_STAGE_LABELS[s],
+            count: stageTotals[s].count,
+          }))}
         />
       </div>
     </div>
