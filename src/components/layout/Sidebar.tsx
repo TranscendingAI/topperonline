@@ -101,7 +101,7 @@ export function Sidebar() {
               transition: "opacity 150ms ease-in-out 50ms",
             }}
           >
-            Topper Online
+            Toppers Online
           </span>
         )}
       </div>
