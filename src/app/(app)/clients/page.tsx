@@ -16,7 +16,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Download, Filter, Users } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -50,6 +50,17 @@ const FILTERS: { key: "all" | "commercial" | "residential"; label: string }[] = 
 ];
 
 export default function ClientsPage() {
+  // useSearchParams() in Inner forces a Suspense boundary at the route level
+  // (Next.js 15+ requirement for static generation). The outer component is
+  // a thin Suspense wrapper; all real logic lives in Inner.
+  return (
+    <Suspense fallback={null}>
+      <ClientsPageInner />
+    </Suspense>
+  );
+}
+
+function ClientsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");

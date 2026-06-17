@@ -15,7 +15,7 @@
 
 "use client";
 
-import { useState, useMemo, type ReactNode } from "react";
+import { Suspense, useState, useMemo, type ReactNode } from "react";
 import { Plus, Download, Package, ArrowDownToLine, Boxes, Search, X } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
@@ -78,14 +78,15 @@ export default function StockPage() {
       />
 
       <div style={{ padding: "0 32px 32px 32px" }}>
-        <Tabs
-          tabs={[
-            {
-              value: "in_house",
-              label: "In House Orders",
-              count: STOCK_ORDERS.length,
-              content: <InHouseOrdersTab />,
-            },
+        <Suspense fallback={<TabFallback />}>
+          <Tabs
+            tabs={[
+              {
+                value: "in_house",
+                label: "In House Orders",
+                count: STOCK_ORDERS.length,
+                content: <InHouseOrdersTab />,
+              },
             {
               value: "trade_in",
               label: "Trade-In",
@@ -99,7 +100,8 @@ export default function StockPage() {
               content: <InventoryTab />,
             },
           ]}
-        />
+          />
+        </Suspense>
       </div>
     </div>
   );
@@ -463,6 +465,22 @@ function InventoryTab() {
 // ============================================================================
 // StockTableShell — shared card wrapper for the 3 stock tabs
 // ============================================================================
+
+/** Skeleton shown while the Tabs component reads URL search params during SSR. */
+function TabFallback() {
+  return (
+    <div
+      className="rounded-md"
+      style={{
+        height: "56px",
+        background: "var(--color-paper)",
+        border: "1px solid var(--color-chalk)",
+        boxShadow: "var(--shadow-card)",
+      }}
+      aria-label="Loading…"
+    />
+  );
+}
 
 function StockTableShell({
   title,
