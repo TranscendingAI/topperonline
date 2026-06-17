@@ -330,6 +330,32 @@ export const INVOICES: Invoice[] = CLIENTS.flatMap((client, i) =>
 // INVOICE ITEMS
 // ============================================================================
 
+export type ItemStatus = "ordered" | "in_stock" | "installed" | "cancelled";
+
+/** Map an item-level status to the badge variant. */
+export function itemStatusToVariant(status: ItemStatus): StatusVariant {
+  switch (status) {
+    case "ordered":
+      return "amber";
+    case "in_stock":
+      return "blue";
+    case "installed":
+      return "green";
+    case "cancelled":
+      return "red";
+  }
+}
+
+/** Human label for an item status. */
+export function itemStatusLabel(status: ItemStatus): string {
+  switch (status) {
+    case "ordered": return "Ordered";
+    case "in_stock": return "In Stock";
+    case "installed": return "Installed";
+    case "cancelled": return "Cancelled";
+  }
+}
+
 export interface InvoiceItem {
   id: string;
   invoiceId: string;
@@ -339,7 +365,7 @@ export interface InvoiceItem {
   color: string;
   description: string;
   price: number;
-  status: "ordered" | "in_stock" | "installed" | "cancelled";
+  status: ItemStatus;
 }
 
 const TOPPER_COLORS = ["Black", "White", "Silver", "Charcoal", "Red", "Blue", "Tan"];
@@ -647,3 +673,126 @@ export const DASHBOARD_METRICS = {
 };
 
 export const fmt = formatCurrency;
+
+// ============================================================================
+// COMMUNICATIONS (per-client log of calls/SMS/emails)
+// ============================================================================
+
+export type CommunicationChannel = "sms" | "email" | "call";
+export type CommunicationDirection = "inbound" | "outbound";
+
+export interface Communication {
+  id: string;
+  clientId: string;
+  channel: CommunicationChannel;
+  direction: CommunicationDirection;
+  /** Display name of the sender/recipient (other party) */
+  from: string;
+  to: string;
+  /** ISO timestamp */
+  timestamp: string;
+  body: string;
+}
+
+const COMM_TEMPLATES = {
+  inbound: [
+    "Hey, checking on the status of my topper order.",
+    "When can I bring my truck in for the install?",
+    "Got the quote — can we go ahead and schedule it?",
+    "Got a question about my invoice, can you call me?",
+    "Just wanted to confirm my appointment for tomorrow.",
+  ],
+  outbound: [
+    "Your topper is in! Let us know when you'd like to schedule the install.",
+    "Thanks for the order — we have you confirmed for next Tuesday at 9am.",
+    "Following up on the quote from last week. Let me know if you have any questions.",
+    "Your install is complete. Please let us know if you have any concerns!",
+    "Reminder: your balance of ${amount} is due by end of week. Let me know if you need to set up a payment plan.",
+  ],
+};
+
+export const COMMUNICATIONS: Communication[] = CLIENTS.flatMap((client, ci) => {
+  // 3-6 comms per client
+  const count = 3 + Math.floor(seeded(ci, 70) * 4);
+  return Array.from({ length: count }, (_, k) => {
+    const isInbound = seeded(ci * 10 + k, 71) > 0.45;
+    const channel: CommunicationChannel =
+      seeded(ci * 10 + k, 72) > 0.6 ? "sms" : seeded(ci * 10 + k, 73) > 0.5 ? "email" : "call";
+    const templates = isInbound ? COMM_TEMPLATES.inbound : COMM_TEMPLATES.outbound;
+    const body = templates[Math.floor(seeded(ci * 10 + k, 74) * templates.length)];
+    return {
+      id: `COM-${100000 + ci * 10 + k}`,
+      clientId: client.id,
+      channel,
+      direction: isInbound ? "inbound" : "outbound",
+      from: isInbound ? `${client.firstName} ${client.lastName}` : "Zack Vivas",
+      to: isInbound ? "Zack Vivas" : `${client.firstName} ${client.lastName}`,
+      timestamp: randomDate(ci * 10 + k, 75, 60),
+      body,
+    } satisfies Communication;
+  });
+});
+
+// ============================================================================
+// NOTES (free-form per-client notes)
+// ============================================================================
+
+export interface Note {
+  id: string;
+  clientId: string;
+  author: string;
+  createdAt: string; // ISO
+  body: string;
+}
+
+const NOTE_BODIES = [
+  "Prefers appointments in the morning — works afternoons.",
+  "Referred by Blue Ridge Electric. Already very loyal.",
+  "Asked about line-x bedliner add-on for next time.",
+  "Wants us to follow up after install to make sure everything's tight.",
+  "Has a fleet of 4 trucks — keep this client warm.",
+  "Switched from a competitor last year. Loves the ARE quality.",
+  "Allergic to strong fragrances — don't spray air freshener in cab.",
+  "Mentioned the back window actuator is sticky. Flag for next service.",
+  "Sent a thank-you card last December. Solid customer.",
+  "Had a small scratch on install — we comped $50 off the next service.",
+];
+
+export const NOTES: Note[] = CLIENTS.flatMap((client, ci) => {
+  const count = seeded(ci, 80) > 0.6 ? 2 + Math.floor(seeded(ci, 81) * 2) : Math.floor(seeded(ci, 82) * 2);
+  return Array.from({ length: count }, (_, k) => ({
+    id: `NOTE-${200000 + ci * 10 + k}`,
+    clientId: client.id,
+    author: k % 2 === 0 ? "Zack Vivas" : "Sarah Patel",
+    createdAt: randomDate(ci * 10 + k, 83, 180),
+    body: NOTE_BODIES[Math.floor(seeded(ci * 10 + k, 84) * NOTE_BODIES.length)],
+  }));
+});
+
+// ============================================================================
+// LOOKUP HELPERS (used by the ClientDrawer + future pages)
+// ============================================================================
+
+export function getInvoicesForClient(clientId: string): Invoice[] {
+  return INVOICES.filter((inv) => inv.clientId === clientId)
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+export function getInvoiceItemsForClient(clientId: string): InvoiceItem[] {
+  const invoiceIds = new Set(getInvoicesForClient(clientId).map((i) => i.id));
+  return INVOICE_ITEMS.filter((it) => invoiceIds.has(it.invoiceId));
+}
+
+export function getCommunicationsForClient(clientId: string): Communication[] {
+  return COMMUNICATIONS.filter((c) => c.clientId === clientId)
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+}
+
+export function getNotesForClient(clientId: string): Note[] {
+  return NOTES.filter((n) => n.clientId === clientId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export function getClientById(clientId: string): Client | undefined {
+  return CLIENTS.find((c) => c.id === clientId);
+}

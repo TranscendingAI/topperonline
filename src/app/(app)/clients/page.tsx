@@ -16,8 +16,9 @@
 
 "use client";
 
-import { useState } from "react";
-import { Plus, Download, Search, Filter, Users } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Plus, Download, Filter, Users } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   Button,
@@ -25,21 +26,20 @@ import {
   DataTable,
   PageHeader,
 } from "@/components/ui";
+import { ClientDrawer } from "@/components/clients/ClientDrawer";
 import {
   CLIENTS,
+  getClientById,
   type Client,
-  statusToVariant,
-  statusLabel,
-  type Status,
 } from "@/lib/mock-data";
 import {
   textColumn,
   dateColumn,
   currencyColumn,
   statusBadgeColumn,
-  defaultRowActions,
 } from "@/lib/columns";
 import { formatPhone } from "@/lib/utils";
+import type { Status } from "@/lib/mock-data";
 
 const FILTERS: { key: "all" | "commercial" | "residential"; label: string }[] = [
   { key: "all", label: "All" },
@@ -48,8 +48,31 @@ const FILTERS: { key: "all" | "commercial" | "residential"; label: string }[] = 
 ];
 
 export default function ClientsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "commercial" | "residential">("all");
+
+  // Drawer state — driven by ?id=C-1234 in the URL
+  const openClientId = searchParams.get("id");
+  const openClient = openClientId ? getClientById(openClientId) ?? null : null;
+
+  const closeDrawer = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("id");
+    const qs = params.toString();
+    router.push(qs ? `/clients?${qs}` : "/clients");
+  };
+
+  // Close drawer on Escape (defense in depth — Drawer does this too)
+  useEffect(() => {
+    if (!openClient) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeDrawer();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openClient]);
 
   const filteredData = CLIENTS.filter((c) => {
     if (filter !== "all" && c.type !== filter) return false;
@@ -96,11 +119,6 @@ export default function ClientsPage() {
       header: "Status",
       accessor: (c) => c.lastInvoiceStatus as Status,
     }),
-    defaultRowActions<Client>({
-      onView: (c) => console.log("view", c.id),
-      onEdit: (c) => console.log("edit", c.id),
-      onDelete: (c) => console.log("delete", c.id),
-    }),
   ];
 
   return (
@@ -127,7 +145,6 @@ export default function ClientsPage() {
       />
 
       <div style={{ padding: "0 32px 32px 32px" }}>
-        {/* Table card with header (search + filters) */}
         <div
           className="bg-paper rounded-md overflow-hidden"
           style={{ boxShadow: "var(--shadow-card)" }}
@@ -208,12 +225,20 @@ export default function ClientsPage() {
             columns={columns}
             data={filteredData}
             getRowId={(c) => c.id}
+            onRowClick={(c) => router.push(`/clients?id=${encodeURIComponent(c.id)}`)}
             emptyIcon={Users}
             emptyTitle="No clients found"
             emptyDescription="Try a different search term or filter."
           />
         </div>
       </div>
+
+      {/* Client Record drawer */}
+      <ClientDrawer
+        client={openClient}
+        open={!!openClient}
+        onClose={closeDrawer}
+      />
     </div>
   );
 }
