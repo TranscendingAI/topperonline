@@ -126,6 +126,7 @@ export default function DashboardPage() {
             value={formatCurrency(DASHBOARD_METRICS.arOverdue30)}
             icon={AlertCircle}
             iconAccent="bronze"
+            tone="bad"
             deltaDirection={arDirection}
             deltaValue={`${arSign}${formatCurrency(Math.abs(arOverdueDelta))}`}
             contextLabel="vs. last month"

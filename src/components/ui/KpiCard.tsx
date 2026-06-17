@@ -20,6 +20,13 @@ import { cn } from "@/lib/utils";
 import { Card } from "./Card";
 
 export type KpiDeltaDirection = "up" | "down" | "neutral";
+/**
+ * `tone` controls whether a rising direction is good (green) or bad (red).
+ * Use "good" for revenue, completed installs, etc.
+ * Use "bad"  for overdue, churn, outstanding complaints, etc.
+ * Defaults to "good".
+ */
+export type KpiDeltaTone = "good" | "bad";
 
 interface KpiCardProps {
   /** Top-row label (e.g. "Today's Installs") */
@@ -40,6 +47,8 @@ interface KpiCardProps {
   href?: string;
   /** Optional click handler */
   onClick?: () => void;
+  /** Whether a rising direction is good (green) or bad (red). Default "good". */
+  tone?: KpiDeltaTone;
 }
 
 const ACCENT_VAR = {
@@ -65,6 +74,16 @@ const DeltaIcon = {
   neutral: Minus,
 };
 
+/**
+ * Flip direction-to-color for "bad" tone metrics. Returns the actual
+ * StatusVariant the pill should be rendered with.
+ */
+function effectiveVariant(dir: KpiDeltaDirection, tone: KpiDeltaTone): KpiDeltaDirection {
+  if (tone === "good" || dir === "neutral") return dir;
+  // tone === "bad": rising is bad -> show red, falling is good -> show green
+  return dir === "up" ? "down" : "up";
+}
+
 export function KpiCard({
   label,
   value,
@@ -75,6 +94,7 @@ export function KpiCard({
   contextLabel,
   href,
   onClick,
+  tone = "good",
 }: KpiCardProps) {
   const inner = (
     <>
@@ -121,25 +141,29 @@ export function KpiCard({
       {/* Delta + context */}
       {(deltaDirection || contextLabel) && (
         <div className="flex items-center" style={{ gap: "6px" }}>
-          {deltaDirection && deltaValue && (
-            <span
-              className={cn("inline-flex items-center", DELTA_TEXT[deltaDirection])}
-              style={{
-                fontSize: "12px",
-                fontWeight: 600,
-                padding: "2px 6px",
-                borderRadius: "4px",
-                background: DELTA_BG[deltaDirection],
-                gap: "2px",
-              }}
-            >
-              {(() => {
-                const DIcon = DeltaIcon[deltaDirection];
-                return <DIcon size={12} strokeWidth={2.5} />;
-              })()}
-              {deltaValue}
-            </span>
-          )}
+          {deltaDirection && deltaValue && (() => {
+            // For "bad" tone, invert the visual variant so up=red, down=green
+            const variant = effectiveVariant(deltaDirection, tone);
+            return (
+              <span
+                className={cn("inline-flex items-center", DELTA_TEXT[variant])}
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  padding: "2px 6px",
+                  borderRadius: "4px",
+                  background: DELTA_BG[variant],
+                  gap: "2px",
+                }}
+              >
+                {(() => {
+                  const DIcon = DeltaIcon[variant];
+                  return <DIcon size={12} strokeWidth={2.5} />;
+                })()}
+                {deltaValue}
+              </span>
+            );
+          })()}
           {contextLabel && (
             <span
               className="text-slate"
