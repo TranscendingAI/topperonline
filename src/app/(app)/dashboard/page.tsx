@@ -1,322 +1,323 @@
 /**
- * PHASE 2 SHOWCASE — temporary demo page to verify all base UI components.
- * Replaced in Phase 4a with the real Dashboard.
+ * Dashboard (Home) — real widgets, not a UI showcase.
  *
- * Exercises:
- *   - Buttons (filled, outlined, ghost, report variants, sm + md sizes)
- *   - Status badges (all 5 colors)
- *   - KPI cards (with various delta states)
- *   - Page header (with breadcrumbs + actions)
- *   - Search input
- *   - Form inputs (text, textarea, select)
- *   - Ghost icon buttons (3 sizes)
- *   - Section card with title + actions
- *   - Empty state
+ * Layout (per DESIGN.md Section 1):
+ *   - PageHeader (no CTA)
+ *   - Section A: 4 KPI cards (Today's Installs, Open Invoices, AR Overdue 30+, Pending Confirmations)
+ *   - Section B: 60/40 charts row (Monthly Revenue area chart + Sales by Manufacturer donut)
+ *   - Section C: Today's Schedule preview (full-width dual-location table)
+ *   - Section D: 50/50 row (Ready for Install condensed table + AI Leads funnel)
  */
 
+"use client";
+
+import Link from "next/link";
+import { ArrowRight, Wrench, FileText, Package, AlertCircle } from "lucide-react";
+import { PageHeader, KpiCard, Card, DataTable } from "@/components/ui";
+import { AreaChartCard } from "@/components/charts/AreaChartCard";
+import { DonutChartCard } from "@/components/charts/DonutChartCard";
+import { FunnelCard } from "@/components/charts/FunnelCard";
 import {
-  Plus,
-  Download,
-  Pencil,
-  Trash2,
-  Eye,
-  Wrench,
-  Calendar,
-  Package,
-  FileText,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
-import {
-  Button,
-  StatusBadge,
-  GhostIconButton,
-  KpiCard,
-  PageHeader,
-  SearchInput,
-  FormInput,
-  FormTextarea,
-  FormSelect,
-  EmptyState,
-  SectionCard,
-  Card,
-} from "@/components/ui";
+  DASHBOARD_METRICS,
+  INVOICES,
+  TODAY_INSTALLS,
+  INVOICE_ITEMS,
+  CLIENTS,
+  PIPELINE_STAGE_LABELS,
+} from "@/lib/mock-data";
+import { formatCurrency } from "@/lib/utils";
+import { textColumn, dateColumn, currencyColumn, defaultRowActions } from "@/lib/columns";
+import type { ColumnDef } from "@tanstack/react-table";
 
 export default function DashboardPage() {
+  // === Section A: KPI metrics ===
+  const arOverdueDelta = DASHBOARD_METRICS.arOverdueDelta;
+  // AR overdue is "bad when up" — flip the displayed direction
+  // (Design: "Status Red delta if increased" — so when delta is positive, show red)
+  const arDirection: "up" | "down" | "neutral" =
+    arOverdueDelta > 0 ? "up" : arOverdueDelta < 0 ? "down" : "neutral";
+  const arSign = arOverdueDelta > 0 ? "+" : arOverdueDelta < 0 ? "-" : "";
+
+  // === Section C: Today's Installs (group by location) ===
+  const suburbanInstalls = TODAY_INSTALLS.filter((i) => i.location === "suburban");
+  const southInstalls = TODAY_INSTALLS.filter((i) => i.location === "south");
+
+  // === Section D: Ready for Install (invoices with status "ordered" or "in_stock") ===
+  const readyItems = INVOICE_ITEMS.filter((it) => it.status === "ordered" || it.status === "in_stock").slice(0, 5);
+  const readyColumns: ColumnDef<(typeof readyItems)[0]>[] = [
+    textColumn({
+      header: "Invoice",
+      sortKey: (it) => INVOICES.find((inv) => inv.id === it.invoiceId)?.number ?? "",
+      render: (it) => {
+        const inv = INVOICES.find((i) => i.id === it.invoiceId);
+        return (
+          <span style={{ fontFamily: "var(--font-inter)", fontSize: "12px", color: "var(--color-slate)" }}>
+            {inv?.number ?? it.invoiceId}
+          </span>
+        );
+      },
+    }),
+    textColumn({
+      header: "Client",
+      sortKey: (it) => {
+        const inv = INVOICES.find((i) => i.id === it.invoiceId);
+        const c = inv ? CLIENTS.find((c) => c.id === inv.clientId) : null;
+        return c?.companyName ?? `${c?.firstName ?? ""} ${c?.lastName ?? ""}`;
+      },
+      render: (it) => {
+        const inv = INVOICES.find((i) => i.id === it.invoiceId);
+        const c = inv ? CLIENTS.find((c) => c.id === inv.clientId) : null;
+        const name = c?.companyName ?? `${c?.firstName ?? ""} ${c?.lastName ?? ""}`;
+        return <span style={{ fontWeight: 500 }}>{name}</span>;
+      },
+    }),
+    textColumn({
+      header: "Description",
+      render: (it) => it.description,
+    }),
+    currencyColumn({
+      key: "price",
+      header: "Price",
+    }),
+    defaultRowActions({
+      onView: () => {},
+      onEdit: () => {},
+      onDelete: () => {},
+    }),
+  ];
+
   return (
-    <div style={{ padding: "32px" }}>
+    <div>
       <PageHeader
         breadcrumbs={[{ label: "Suburban Toppers CRM" }, { label: "Dashboard" }]}
         title="Dashboard"
-        actions={
-          <>
-            <Button variant="outlined" leadingIcon={<Download size={16} strokeWidth={2} />}>
-              Export
-            </Button>
-            <Button variant="filled" leadingIcon={<Plus size={16} strokeWidth={2} />}>
-              New
-            </Button>
-          </>
-        }
       />
 
-      {/* KPI row */}
-      <div
-        className="grid"
-        style={{
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: "20px",
-          marginBottom: "32px",
-        }}
-      >
-        <KpiCard
-          label="Today's Installs"
-          value="12"
-          icon={Wrench}
-          iconAccent="orange"
-          deltaDirection="up"
-          deltaValue="+3"
-          contextLabel="vs. yesterday"
-        />
-        <KpiCard
-          label="Open Invoices"
-          value="48"
-          icon={FileText}
-          iconAccent="orange"
-          deltaDirection="down"
-          deltaValue="-5"
-          contextLabel="vs. last week"
-        />
-        <KpiCard
-          label="AR Overdue 30+"
-          value="$24,800"
-          icon={FileText}
-          iconAccent="bronze"
-          deltaDirection="up"
-          deltaValue="+$3,200"
-          contextLabel="vs. last month"
-        />
-        <KpiCard
-          label="Pending Confirmations"
-          value="7"
-          icon={Package}
-          iconAccent="orange"
-          deltaDirection="neutral"
-          deltaValue="0"
-          contextLabel="this week"
-        />
-      </div>
-
-      {/* Status badges demo */}
-      <Card padding={24} className="mb-32">
-        <h2
-          className="text-carbon"
+      <div style={{ padding: "0 32px 32px 32px" }}>
+        {/* === Section A: KPI Row === */}
+        <div
+          className="grid"
           style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "16px",
-            fontWeight: 600,
-            lineHeight: 1.2,
-            marginBottom: "16px",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: "20px",
+            marginBottom: "32px",
           }}
         >
-          Status Badges
-        </h2>
-        <div className="flex flex-wrap items-center" style={{ gap: "8px" }}>
-          <StatusBadge variant="green">Confirmed</StatusBadge>
-          <StatusBadge variant="green">Paid</StatusBadge>
-          <StatusBadge variant="green">In Stock</StatusBadge>
-          <StatusBadge variant="green">Active</StatusBadge>
-          <StatusBadge variant="amber">Pending</StatusBadge>
-          <StatusBadge variant="amber">Awaiting</StatusBadge>
-          <StatusBadge variant="amber">Partial</StatusBadge>
-          <StatusBadge variant="red">Overdue</StatusBadge>
-          <StatusBadge variant="red">Cancelled</StatusBadge>
-          <StatusBadge variant="red">Failed</StatusBadge>
-          <StatusBadge variant="blue">Sent</StatusBadge>
-          <StatusBadge variant="blue">In Transit</StatusBadge>
-          <StatusBadge variant="blue">Scheduled</StatusBadge>
-          <StatusBadge variant="purple">AI Active</StatusBadge>
-          <StatusBadge variant="purple">Auto-Sent</StatusBadge>
-          <StatusBadge variant="purple">Lead Engaged</StatusBadge>
+          <KpiCard
+            label="Today's Installs"
+            value={DASHBOARD_METRICS.todaysInstalls}
+            icon={Wrench}
+            iconAccent="orange"
+            deltaDirection="up"
+            deltaValue="+3"
+            contextLabel="vs. yesterday"
+          />
+          <KpiCard
+            label="Open Invoices"
+            value={DASHBOARD_METRICS.openInvoices}
+            icon={FileText}
+            iconAccent="orange"
+            deltaDirection="down"
+            deltaValue="-5"
+            contextLabel="vs. last week"
+          />
+          <KpiCard
+            label="AR Overdue 30+"
+            value={formatCurrency(DASHBOARD_METRICS.arOverdue30)}
+            icon={AlertCircle}
+            iconAccent="bronze"
+            deltaDirection={arDirection}
+            deltaValue={`${arSign}${formatCurrency(Math.abs(arOverdueDelta))}`}
+            contextLabel="vs. last month"
+          />
+          <KpiCard
+            label="Pending Confirmations"
+            value={DASHBOARD_METRICS.pendingConfirmations}
+            icon={Package}
+            iconAccent="orange"
+            deltaDirection="neutral"
+            deltaValue="0"
+            contextLabel="this week"
+          />
         </div>
-      </Card>
 
-      {/* Buttons + form demo */}
-      <div
-        className="grid"
-        style={{
-          gridTemplateColumns: "1fr 1fr",
-          gap: "20px",
-          marginBottom: "32px",
-        }}
-      >
-        <Card padding={24}>
-          <h2
-            className="text-carbon"
+        {/* === Section B: Charts Row (60/40) === */}
+        <div
+          className="grid"
+          style={{
+            gridTemplateColumns: "3fr 2fr",
+            gap: "20px",
+            marginBottom: "32px",
+          }}
+        >
+          <AreaChartCard
+            title="Monthly Revenue"
+            subtitle="Last 12 months"
+            data={DASHBOARD_METRICS.monthlyRevenue.map((m) => ({ label: m.month, value: m.value }))}
+            periods={["12M", "6M", "YTD"]}
+            defaultPeriod="12M"
+            formatValue={(n) => `$${(n / 1000).toFixed(0)}k`}
+            height={240}
+          />
+          <DonutChartCard
+            title="Sales by Manufacturer"
+            data={DASHBOARD_METRICS.salesByManufacturer}
+            centerValue="38%"
+            centerLabel="ARE"
+          />
+        </div>
+
+        {/* === Section C: Today's Schedule Preview === */}
+        <Card padding={0} className="mb-32">
+          <div
+            className="flex items-center justify-between"
             style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "16px",
-              fontWeight: 600,
-              lineHeight: 1.2,
-              marginBottom: "16px",
+              padding: "20px 24px",
+              borderBottom: "1px solid var(--color-chalk)",
             }}
           >
-            Buttons
-          </h2>
-          <div className="flex flex-wrap items-center" style={{ gap: "12px" }}>
-            <Button variant="filled" leadingIcon={<Plus size={16} strokeWidth={2} />}>
-              Filled Button
-            </Button>
-            <Button variant="outlined" leadingIcon={<Download size={16} strokeWidth={2} />}>
-              Outlined Button
-            </Button>
-            <Button variant="ghost" leadingIcon={<Pencil size={16} strokeWidth={2} />}>
-              Ghost Button
-            </Button>
-            <Button variant="report" leadingIcon={<Download size={16} strokeWidth={2} />}>
-              Get Report
-            </Button>
-            <Button variant="filled" size="sm">
-              Small
-            </Button>
-            <Button variant="outlined" size="sm">
-              Small Outlined
-            </Button>
-            <Button variant="filled" disabled>
-              Disabled
-            </Button>
-          </div>
-        </Card>
-
-        <Card padding={24}>
-          <h2
-            className="text-carbon"
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "16px",
-              fontWeight: 600,
-              lineHeight: 1.2,
-              marginBottom: "16px",
-            }}
-          >
-            Icon Buttons
-          </h2>
-          <div className="flex flex-wrap items-center" style={{ gap: "8px" }}>
-            <GhostIconButton size="sm" aria-label="View">
-              <Eye size={18} strokeWidth={2} />
-            </GhostIconButton>
-            <GhostIconButton size="sm" aria-label="Edit">
-              <Pencil size={16} strokeWidth={2} />
-            </GhostIconButton>
-            <GhostIconButton size="sm" aria-label="Delete">
-              <Trash2 size={16} strokeWidth={2} />
-            </GhostIconButton>
-            <GhostIconButton size="md" aria-label="Previous">
-              <ChevronLeft size={18} strokeWidth={2} />
-            </GhostIconButton>
-            <GhostIconButton size="md" aria-label="Next">
-              <ChevronRight size={18} strokeWidth={2} />
-            </GhostIconButton>
-            <GhostIconButton size="lg" aria-label="Calendar">
-              <Calendar size={20} strokeWidth={2} />
-            </GhostIconButton>
-            <GhostIconButton size="md" aria-label="Active toggle" active>
-              <Wrench size={18} strokeWidth={2} />
-            </GhostIconButton>
-            <GhostIconButton size="md" aria-label="Disabled" disabled>
-              <Plus size={18} strokeWidth={2} />
-            </GhostIconButton>
-          </div>
-        </Card>
-      </div>
-
-      {/* Form inputs + search */}
-      <div
-        className="grid"
-        style={{
-          gridTemplateColumns: "1fr 1fr",
-          gap: "20px",
-          marginBottom: "32px",
-        }}
-      >
-        <Card padding={24}>
-          <h2
-            className="text-carbon"
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "16px",
-              fontWeight: 600,
-              lineHeight: 1.2,
-              marginBottom: "16px",
-            }}
-          >
-            Form Inputs
-          </h2>
-          <div className="flex flex-col" style={{ gap: "16px" }}>
-            <FormInput label="Company Name" placeholder="Acme Trucking" required />
-            <FormInput
-              label="Email"
-              type="email"
-              placeholder="ops@acme.com"
-              helperText="We'll never share this."
-            />
-            <FormInput
-              label="PO Number"
-              placeholder="PO-2026-001"
-              errorText="PO Number is already in use."
-            />
-            <FormSelect label="Manufacturer" defaultValue="">
-              <option value="" disabled>
-                Choose a manufacturer…
-              </option>
-              <option>ARE</option>
-              <option>Leer</option>
-              <option>Snugtop</option>
-            </FormSelect>
-            <FormTextarea label="Notes" placeholder="Add a note…" rows={3} />
-          </div>
-        </Card>
-
-        <Card padding={24}>
-          <h2
-            className="text-carbon"
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "16px",
-              fontWeight: 600,
-              lineHeight: 1.2,
-              marginBottom: "16px",
-            }}
-          >
-            Search + Section Card
-          </h2>
-          <div className="flex flex-col" style={{ gap: "16px" }}>
-            <SearchInput placeholder="Search by name, phone, company…" />
-            <SearchInput defaultValue="Acme" placeholder="Search…" />
-            <SearchInput placeholder="Disabled search" disabled />
-          </div>
-
-          <div style={{ marginTop: "24px" }}>
-            <SectionCard
-              title="All Clients"
-              actions={
-                <Button variant="outlined" size="sm" leadingIcon={<Download size={14} strokeWidth={2} />}>
-                  Export
-                </Button>
-              }
-              bodyPadding={0}
+            <h3
+              className="text-carbon"
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "16px",
+                fontWeight: 600,
+                lineHeight: 1.2,
+              }}
             >
-              <EmptyState
-                icon={FileText}
-                title="No clients yet"
-                description="Add your first client to get started."
-                action={{ label: "New Client" }}
-                compact
-              />
-            </SectionCard>
+              Today's Installs
+            </h3>
+            <Link
+              href="/schedule"
+              className="text-signal-orange inline-flex items-center"
+              style={{ fontSize: "14px", fontWeight: 500, gap: "4px" }}
+            >
+              View Full Schedule
+              <ArrowRight size={14} strokeWidth={2} />
+            </Link>
+          </div>
+          <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+            <InstallColumn
+              title="Suburban Toppers"
+              installs={suburbanInstalls}
+              borderRight
+            />
+            <InstallColumn
+              title="Suburban Toppers - South"
+              installs={southInstalls}
+            />
           </div>
         </Card>
+
+        {/* === Section D: 50/50 row === */}
+        <div
+          className="grid"
+          style={{
+            gridTemplateColumns: "1fr 1fr",
+            gap: "20px",
+          }}
+        >
+          <DataTable
+            columns={readyColumns}
+            data={readyItems}
+            getRowId={(it) => it.id}
+            emptyTitle="No items ready for install"
+            enablePagination={false}
+          />
+          <FunnelCard
+            title="AI Leads Pipeline"
+            stages={[
+              { label: "New Lead", count: DASHBOARD_METRICS.pipelineCounts.new_lead, href: "/leads?stage=new_lead" },
+              { label: "AI Contacted", count: DASHBOARD_METRICS.pipelineCounts.ai_contacted, href: "/leads?stage=ai_contacted" },
+              { label: "Responded", count: DASHBOARD_METRICS.pipelineCounts.responded, href: "/leads?stage=responded" },
+              { label: "Appointment Set", count: DASHBOARD_METRICS.pipelineCounts.appointment_set, href: "/leads?stage=appointment_set" },
+              { label: "Confirmed Sale", count: DASHBOARD_METRICS.pipelineCounts.confirmed_sale, href: "/leads?stage=confirmed_sale" },
+            ]}
+          />
+        </div>
       </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Sub-component: dual-column install preview (one per location)
+// ============================================================================
+
+function InstallColumn({
+  title,
+  installs,
+  borderRight,
+}: {
+  title: string;
+  installs: typeof TODAY_INSTALLS;
+  borderRight?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        padding: "20px 24px",
+        borderRight: borderRight ? "1px solid var(--color-chalk)" : undefined,
+      }}
+    >
+      <h4
+        className="text-carbon"
+        style={{
+          fontFamily: "var(--font-display)",
+          fontSize: "14px",
+          fontWeight: 600,
+          lineHeight: 1.2,
+          marginBottom: "12px",
+        }}
+      >
+        {title}
+      </h4>
+
+      {installs.length === 0 ? (
+        <div className="text-slate" style={{ fontSize: "14px", textAlign: "center", padding: "24px 0" }}>
+          No installs scheduled today.
+        </div>
+      ) : (
+        <div className="flex flex-col" style={{ gap: "8px" }}>
+          {installs.map((inst) => (
+            <div
+              key={inst.id}
+              className="bg-paper rounded-md"
+              style={{
+                padding: "10px 12px",
+                borderLeft: "3px solid var(--color-signal-orange)",
+                background: "var(--color-fog)",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+              }}
+            >
+              <div
+                className="text-carbon shrink-0"
+                style={{
+                  fontFamily: "var(--font-inter)",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  minWidth: "44px",
+                }}
+              >
+                {inst.startTime}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-carbon truncate" style={{ fontSize: "13px", fontWeight: 500 }}>
+                  {inst.clientName}
+                </div>
+                <div className="text-slate truncate" style={{ fontSize: "12px", lineHeight: 1.2 }}>
+                  {inst.topperDescription}
+                </div>
+              </div>
+              <div className="text-slate shrink-0" style={{ fontSize: "12px", whiteSpace: "nowrap" }}>
+                {inst.installer}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
