@@ -23,10 +23,18 @@
  * issues with the AppShell.
  */
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+/** True on the client, false during SSR — portal-safe without setState-in-effect. */
+const useIsClient = () =>
+  useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
 
 interface DrawerProps {
   open: boolean;
@@ -87,10 +95,7 @@ export function Drawer({
   }, [open, onClose]);
 
   // SSR safety: only render the portal on the client (avoids "document is not defined")
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useIsClient();
 
   if (!mounted || typeof document === "undefined") return null;
   if (!open) return null;

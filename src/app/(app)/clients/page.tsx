@@ -16,7 +16,7 @@
 
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Download, Filter, Users } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -70,12 +70,12 @@ function ClientsPageInner() {
   const openClientId = searchParams.get("id");
   const openClient = openClientId ? getClientById(openClientId) ?? null : null;
 
-  const closeDrawer = () => {
+  const closeDrawer = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString());
     params.delete("id");
     const qs = params.toString();
     router.push(qs ? `/clients?${qs}` : "/clients");
-  };
+  }, [searchParams, router]);
 
   // Close drawer on Escape (defense in depth — Drawer does this too)
   useEffect(() => {
@@ -85,7 +85,7 @@ function ClientsPageInner() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openClient]);
+  }, [openClient, closeDrawer]);
 
   const filteredData = CLIENTS.filter((c) => {
     if (filter !== "all" && c.type !== filter) return false;

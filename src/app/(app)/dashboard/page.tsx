@@ -24,10 +24,9 @@ import {
   TODAY_INSTALLS,
   INVOICE_ITEMS,
   CLIENTS,
-  PIPELINE_STAGE_LABELS,
 } from "@/lib/mock-data";
 import { formatCurrency } from "@/lib/utils";
-import { textColumn, dateColumn, currencyColumn, defaultRowActions } from "@/lib/columns";
+import { textColumn, currencyColumn, defaultRowActions } from "@/lib/columns";
 import type { ColumnDef } from "@tanstack/react-table";
 
 export default function DashboardPage() {
@@ -187,7 +186,7 @@ export default function DashboardPage() {
                 lineHeight: 1.2,
               }}
             >
-              Today's Installs
+              Today&apos;s Installs
             </h3>
             <Link
               href="/schedule"

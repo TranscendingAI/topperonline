@@ -23,7 +23,6 @@ import {
   Button,
   DataTable,
   Tabs,
-  type TabItem,
 } from "@/components/ui";
 import {
   textColumn,

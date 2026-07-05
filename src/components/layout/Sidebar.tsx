@@ -20,12 +20,33 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Menu, X, Settings, ChevronRight } from "lucide-react";
 import { NAV_ITEMS, type NavItem, type NavLeaf } from "@/lib/nav";
 import { cn, getInitials } from "@/lib/utils";
 
 const STORAGE_KEY = "st-sidebar-collapsed";
+
+// localStorage as an external store: SSR snapshot is `false` (expanded),
+// client snapshot reads the persisted value — no hydration flag, no
+// setState-in-effect. Toggling dispatches an event to notify subscribers.
+const TOGGLE_EVENT = "st-sidebar-toggle";
+
+function subscribeCollapsed(cb: () => void) {
+  window.addEventListener(TOGGLE_EVENT, cb);
+  window.addEventListener("storage", cb);
+  return () => {
+    window.removeEventListener(TOGGLE_EVENT, cb);
+    window.removeEventListener("storage", cb);
+  };
+}
+
+const readCollapsed = () => localStorage.getItem(STORAGE_KEY) === "true";
+
+function writeCollapsed(value: boolean) {
+  localStorage.setItem(STORAGE_KEY, String(value));
+  window.dispatchEvent(new Event(TOGGLE_EVENT));
+}
 
 // Design spec values (px) — sourced from DESIGN.md
 const NAV_ITEM_HEIGHT = 44;
@@ -39,22 +60,14 @@ const SIDEBAR_BORDER = 1;
 
 export function Sidebar() {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
+  const collapsed = useSyncExternalStore(subscribeCollapsed, readCollapsed, () => false);
+  const setCollapsed = (fn: (c: boolean) => boolean) => writeCollapsed(fn(collapsed));
 
-  // Hydrate from localStorage on mount (avoid SSR mismatch)
+  // Reflect state onto <html> so pages can respond (external system sync —
+  // the legitimate use of an effect)
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "true") setCollapsed(true);
-    setHydrated(true);
-  }, []);
-
-  // Persist + broadcast so other components can react
-  useEffect(() => {
-    if (!hydrated) return;
-    localStorage.setItem(STORAGE_KEY, String(collapsed));
     document.documentElement.dataset.sidebar = collapsed ? "collapsed" : "expanded";
-  }, [collapsed, hydrated]);
+  }, [collapsed]);
 
   const width = collapsed ? 60 : 240;
 
@@ -284,6 +297,8 @@ function ExpandableGroup({
   const childActive = item.children!.some(
     (c) => pathname === c.href || pathname.startsWith(c.href + "/")
   );
+  // Expanded-mode disclosure state — must be unconditional (rules of hooks)
+  const [open, setOpen] = useState(childActive);
 
   if (collapsed) {
     return (
@@ -324,8 +339,6 @@ function ExpandableGroup({
   }
 
   // Expanded mode: collapsible group with sub-list
-  const [open, setOpen] = useState(childActive);
-
   return (
     <li className="mb-4 last:mb-0">
       <button

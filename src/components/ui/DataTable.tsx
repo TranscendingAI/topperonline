@@ -32,7 +32,6 @@ import {
 } from "@tanstack/react-table";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import {
-  type ReactNode,
   useState,
 } from "react";
 import { cn } from "@/lib/utils";

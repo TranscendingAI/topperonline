@@ -244,6 +244,10 @@ function ItemsTab({
   items: InvoiceItem[];
   itemsByInvoice: Map<string, InvoiceItem[]>;
 }) {
+  // Hook must precede any early return (rules of hooks)
+  const [openInvoices, setOpenInvoices] = useState<Set<string>>(
+    new Set([...itemsByInvoice.keys()][0] ?? "")
+  );
   if (!items.length) {
     return (
       <div className="text-slate" style={{ fontSize: "14px", textAlign: "center", padding: "32px 0" }}>
@@ -251,7 +255,6 @@ function ItemsTab({
       </div>
     );
   }
-  const [openInvoices, setOpenInvoices] = useState<Set<string>>(new Set([...itemsByInvoice.keys()][0] ?? ""));
   return (
     <div className="flex flex-col" style={{ gap: "4px" }}>
       {[...itemsByInvoice.entries()].map(([invoiceId, group]) => {

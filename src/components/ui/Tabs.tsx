@@ -19,7 +19,7 @@
  */
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { Fragment, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 export interface TabItem {
