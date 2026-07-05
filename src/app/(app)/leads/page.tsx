@@ -71,19 +71,25 @@ export default function LeadsPage() {
   const [showNewLead, setShowNewLead] = useState(false);
 
   const refresh = async () => {
-    try {
-      const res = await fetch("/api/leads");
-      const data = await res.json();
-      setLeads(data.leads ?? []);
-    } catch (e) {
-      console.error("Failed to load leads", e);
-    } finally {
-      setLoading(false);
-    }
+    const res = await fetch("/api/leads");
+    const data = await res.json();
+    setLeads(data.leads ?? []);
   };
 
   useEffect(() => {
-    refresh();
+    let cancelled = false;
+    fetch("/api/leads")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setLeads(data.leads ?? []);
+      })
+      .catch((e) => console.error("Failed to load leads", e))
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const moveLead = (leadId: string, targetStage: LeadStage) => {
@@ -754,7 +760,7 @@ function LeadCard({
               opacity: 0.8,
             }}
           >
-            "{lastMessage.text}"
+            &ldquo;{lastMessage.text}&rdquo;
           </div>
         )}
       </div>

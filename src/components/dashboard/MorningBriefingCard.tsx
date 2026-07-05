@@ -44,7 +44,19 @@ export function MorningBriefingCard() {
   };
 
   useEffect(() => {
-    load();
+    let cancelled = false;
+    fetch("/api/briefing")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setBriefing(data.briefing);
+      })
+      .catch((e) => console.error("Failed to load briefing", e))
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (

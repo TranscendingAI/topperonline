@@ -30,7 +30,6 @@ const DB_DIR = process.env.VERCEL
 const DB_PATH = path.join(DB_DIR, "toppers.db");
 
 declare global {
-  // eslint-disable-next-line no-var
   var __toppersDb: Database.Database | undefined;
 }
 
