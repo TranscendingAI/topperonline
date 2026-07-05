@@ -17,6 +17,7 @@ import { PageHeader, KpiCard, Card, DataTable } from "@/components/ui";
 import { AreaChartCard } from "@/components/charts/AreaChartCard";
 import { DonutChartCard } from "@/components/charts/DonutChartCard";
 import { FunnelCard } from "@/components/charts/FunnelCard";
+import { MorningBriefingCard } from "@/components/dashboard/MorningBriefingCard";
 import {
   DASHBOARD_METRICS,
   INVOICES,
@@ -216,6 +217,7 @@ export default function DashboardPage() {
           style={{
             gridTemplateColumns: "1fr 1fr",
             gap: "20px",
+            marginBottom: "32px",
           }}
         >
           <DataTable
@@ -236,6 +238,17 @@ export default function DashboardPage() {
               { label: "Confirmed Sale", count: DASHBOARD_METRICS.pipelineCounts.confirmed_sale, href: "/leads?stage=confirmed_sale" },
             ]}
           />
+        </div>
+
+        {/* === Section E: Morning Briefing (Phase 2c agent) === */}
+        <div
+          className="grid"
+          style={{
+            gridTemplateColumns: "1fr 1fr",
+            gap: "20px",
+          }}
+        >
+          <MorningBriefingCard />
         </div>
       </div>
     </div>

@@ -37,7 +37,6 @@ import {
 import { PageHeader, Button } from "@/components/ui";
 import { FunnelCard } from "@/components/charts/FunnelCard";
 import {
-  LEADS,
   PIPELINE_STAGE_LABELS,
   type Lead,
   type LeadStage,
@@ -63,19 +62,46 @@ const SOURCE_LABEL: Record<LeadSource, string> = {
 };
 
 export default function LeadsPage() {
-  // Local mutable copy so click-to-move actually works (without a backend)
-  const [leads, setLeads] = useState<Lead[]>(LEADS);
+  // Live data from /api/leads (Phase 2b) — Sarah keeps this fresh.
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [sourceFilter, setSourceFilter] = useState<LeadSource | "all">("all");
   const [activePopover, setActivePopover] = useState<string | null>(null);
+  const [showNewLead, setShowNewLead] = useState(false);
+
+  const refresh = async () => {
+    try {
+      const res = await fetch("/api/leads");
+      const data = await res.json();
+      setLeads(data.leads ?? []);
+    } catch (e) {
+      console.error("Failed to load leads", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refresh();
+  }, []);
 
   const moveLead = (leadId: string, targetStage: LeadStage) => {
+    // Optimistic UI update, then persist.
     setLeads((prev) =>
       prev.map((l) =>
         l.id === leadId ? { ...l, stage: targetStage, lastContactAt: new Date().toISOString() } : l
       )
     );
     setActivePopover(null);
+    fetch(`/api/leads/${encodeURIComponent(leadId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stage: targetStage }),
+    }).catch((e) => {
+      console.error("Failed to persist stage move", e);
+      refresh(); // re-sync on failure
+    });
   };
 
   // Group leads by stage, applying search + source filter
@@ -139,7 +165,11 @@ export default function LeadsPage() {
             <Button variant="outlined" leadingIcon={<Download size={16} strokeWidth={2} />}>
               Export
             </Button>
-            <Button variant="filled" leadingIcon={<Plus size={16} strokeWidth={2} />}>
+            <Button
+              variant="filled"
+              leadingIcon={<Plus size={16} strokeWidth={2} />}
+              onClick={() => setShowNewLead(true)}
+            >
               New Lead
             </Button>
           </>
@@ -341,12 +371,161 @@ export default function LeadsPage() {
         {/* === Pipeline summary (StageCard row) === */}
         <FunnelCard
           title="Lead Pipeline"
-          subtitle={`${STAGES.reduce((sum, s) => sum + stageTotals[s].count, 0)} active leads`}
+          subtitle={`${STAGES.reduce((sum, s) => sum + stageTotals[s].count, 0)} active leads${loading ? " · loading…" : ""}`}
           stages={STAGES.map((s) => ({
             label: PIPELINE_STAGE_LABELS[s],
             count: stageTotals[s].count,
           }))}
         />
+      </div>
+
+      {/* === New Lead modal (POSTs to /api/leads → Sarah responds instantly) === */}
+      {showNewLead && (
+        <NewLeadModal
+          onClose={() => setShowNewLead(false)}
+          onCreated={() => {
+            setShowNewLead(false);
+            refresh();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// NewLeadModal — minimal intake form; the API triggers Sarah's outreach
+// ============================================================================
+
+function NewLeadModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [vehicle, setVehicle] = useState("");
+  const [interest, setInterest] = useState("");
+  const [source, setSource] = useState<LeadSource>("website");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    if (!firstName.trim() || !lastName.trim()) {
+      setError("First and last name are required.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firstName, lastName, phone, vehicle, interest, source }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
+      onCreated();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create lead");
+      setSubmitting(false);
+    }
+  };
+
+  const fieldStyle: React.CSSProperties = {
+    height: "36px",
+    width: "100%",
+    padding: "0 12px",
+    border: "1px solid var(--color-chalk)",
+    borderRadius: "6px",
+    fontSize: "13px",
+    color: "var(--color-carbon)",
+    outline: "none",
+    background: "var(--color-paper)",
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 100,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(20, 20, 20, 0.4)",
+      }}
+      onClick={onClose}
+    >
+      <div
+        className="bg-paper rounded-md"
+        style={{
+          width: "420px",
+          maxWidth: "90vw",
+          padding: "24px",
+          boxShadow: "var(--shadow-card)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between" style={{ marginBottom: "16px" }}>
+          <h3
+            className="text-carbon"
+            style={{ fontFamily: "var(--font-display)", fontSize: "16px", fontWeight: 600 }}
+          >
+            New Lead
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--color-slate)" }}
+          >
+            <X size={16} strokeWidth={2} />
+          </button>
+        </div>
+
+        <div className="flex flex-col" style={{ gap: "10px" }}>
+          <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+            <input style={fieldStyle} placeholder="First name *" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+            <input style={fieldStyle} placeholder="Last name *" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+          </div>
+          <input style={fieldStyle} placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <input style={fieldStyle} placeholder="Vehicle (e.g. 2024 Ford F-150)" value={vehicle} onChange={(e) => setVehicle(e.target.value)} />
+          <input style={fieldStyle} placeholder="Interest (e.g. ARE CX Series topper)" value={interest} onChange={(e) => setInterest(e.target.value)} />
+          <select
+            style={{ ...fieldStyle, cursor: "pointer" }}
+            value={source}
+            onChange={(e) => setSource(e.target.value as LeadSource)}
+          >
+            {(Object.keys(SOURCE_LABEL) as LeadSource[]).map((s) => (
+              <option key={s} value={s}>{SOURCE_LABEL[s]}</option>
+            ))}
+          </select>
+
+          {error && (
+            <div style={{ fontSize: "12px", color: "var(--color-status-red, #c0392b)" }}>{error}</div>
+          )}
+
+          <div className="flex items-center justify-between" style={{ marginTop: "6px" }}>
+            <span className="text-slate flex items-center" style={{ fontSize: "11px", gap: "4px" }}>
+              <Sparkles size={11} strokeWidth={2.5} />
+              Sarah responds instantly on creation
+            </span>
+            <div className="flex" style={{ gap: "8px" }}>
+              <Button variant="outlined" onClick={onClose}>Cancel</Button>
+              <Button variant="filled" onClick={submit} disabled={submitting}>
+                {submitting ? "Creating…" : "Create Lead"}
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
