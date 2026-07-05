@@ -21,7 +21,12 @@ import fs from "fs";
 // Connection singleton
 // ---------------------------------------------------------------------------
 
-const DB_DIR = path.join(process.cwd(), ".data");
+// On Vercel (serverless) the project filesystem is read-only — only /tmp is
+// writable. The DB there is EPHEMERAL (resets on cold start): fine for demos,
+// not for production. Real persistence = Turso/Neon (see ROADMAP backlog).
+const DB_DIR = process.env.VERCEL
+  ? "/tmp/toppers-data"
+  : path.join(process.cwd(), ".data");
 const DB_PATH = path.join(DB_DIR, "toppers.db");
 
 declare global {
