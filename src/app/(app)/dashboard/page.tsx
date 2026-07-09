@@ -17,6 +17,7 @@ import { PageHeader, KpiCard, Card, DataTable } from "@/components/ui";
 import { AreaChartCard } from "@/components/charts/AreaChartCard";
 import { DonutChartCard } from "@/components/charts/DonutChartCard";
 import { FunnelCard } from "@/components/charts/FunnelCard";
+import { SalesBreakdownCard } from "@/components/charts/SalesBreakdownCard";
 import { MorningBriefingCard } from "@/components/dashboard/MorningBriefingCard";
 import {
   DASHBOARD_METRICS,
@@ -24,6 +25,9 @@ import {
   TODAY_INSTALLS,
   INVOICE_ITEMS,
   CLIENTS,
+  getSalesByTruckBrand,
+  getSalesByTruckModel,
+  getSalesByOrderType,
 } from "@/lib/mock-data";
 import { formatCurrency } from "@/lib/utils";
 import { textColumn, currencyColumn, defaultRowActions } from "@/lib/columns";
@@ -44,6 +48,11 @@ export default function DashboardPage() {
 
   // === Section D: Ready for Install (invoices with status "ordered" or "in_stock") ===
   const readyItems = INVOICE_ITEMS.filter((it) => it.status === "ordered" || it.status === "in_stock").slice(0, 5);
+
+  // === Section F: Sales reporting by truck brand / model / order type ===
+  const salesByBrand = getSalesByTruckBrand();
+  const salesByModel = getSalesByTruckModel();
+  const salesByOrderType = getSalesByOrderType();
   const readyColumns: ColumnDef<(typeof readyItems)[0]>[] = [
     textColumn({
       header: "Invoice",
@@ -236,6 +245,34 @@ export default function DashboardPage() {
               { label: "Appointment Set", count: DASHBOARD_METRICS.pipelineCounts.appointment_set, href: "/leads?stage=appointment_set" },
               { label: "Confirmed Sale", count: DASHBOARD_METRICS.pipelineCounts.confirmed_sale, href: "/leads?stage=confirmed_sale" },
             ]}
+          />
+        </div>
+
+        {/* === Section F: Sales by Truck Brand / Model / Order Type === */}
+        <div
+          className="grid"
+          style={{
+            gridTemplateColumns: "1fr 1fr 1fr",
+            gap: "20px",
+            marginBottom: "32px",
+          }}
+        >
+          <SalesBreakdownCard
+            title="Sales by Truck Brand"
+            subtitle="units installed"
+            rows={salesByBrand}
+          />
+          <SalesBreakdownCard
+            title="Sales by Truck Model"
+            subtitle="top 6"
+            rows={salesByModel}
+            maxRows={6}
+            barColor="var(--color-sienna-bronze)"
+          />
+          <SalesBreakdownCard
+            title="Stock vs. Custom Order"
+            rows={salesByOrderType}
+            barColor="var(--color-graphite)"
           />
         </div>
 

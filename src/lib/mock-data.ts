@@ -366,13 +366,28 @@ export interface InvoiceItem {
   description: string;
   price: number;
   status: ItemStatus;
+  /** Truck this item was installed on — for sales-by-brand/model reporting. */
+  truckBrand: string;
+  truckModel: string;
+  /** Was this topper pulled from stock on hand, or specially ordered for the customer? */
+  orderType: "stock" | "custom_order";
 }
 
 const TOPPER_COLORS = ["Black", "White", "Silver", "Charcoal", "Red", "Blue", "Tan"];
 
+/** Parse "2024 Ford F-150" → { brand: "Ford", model: "F-150" } */
+function parseVehicle(vehicle: string): { brand: string; model: string } {
+  const parts = vehicle.split(" ");
+  const brand = parts[1] ?? "Other";
+  const model = parts.slice(2).join(" ") || "Other";
+  return { brand, model };
+}
+
 export const INVOICE_ITEMS: InvoiceItem[] = INVOICES.flatMap((inv) =>
   Array.from({ length: inv.itemCount }, (_, k) => {
     const idx = parseInt(inv.id.split("-")[1]) + k;
+    const vehicle = pick(VEHICLES, idx, 53);
+    const { brand, model } = parseVehicle(vehicle);
     return {
       id: `II-${6000 + idx}`,
       invoiceId: inv.id,
@@ -380,9 +395,12 @@ export const INVOICE_ITEMS: InvoiceItem[] = INVOICES.flatMap((inv) =>
       manufacturer: pick(["ARE", "Leer", "Snugtop"], idx, 50),
       model: pick(["CX Series", "100R", "Z Series", "122 Cap", "Hi-Liner"], idx, 51),
       color: pick(TOPPER_COLORS, idx, 52),
-      description: `${pick(VEHICLES, idx, 53)} topper install`,
+      description: `${vehicle} topper install`,
       price: Math.floor(1800 + seeded(idx, 54) * 3200),
       status: pick(["ordered", "in_stock", "installed", "cancelled"] as const, idx, 55),
+      truckBrand: brand,
+      truckModel: model,
+      orderType: seeded(idx, 56) > 0.55 ? "custom_order" : "stock",
     } satisfies InvoiceItem;
   })
 );
@@ -795,4 +813,59 @@ export function getNotesForClient(clientId: string): Note[] {
 
 export function getClientById(clientId: string): Client | undefined {
   return CLIENTS.find((c) => c.id === clientId);
+}
+
+// ============================================================================
+// SALES REPORTING — by truck brand, model, and order type (stock vs custom)
+// ============================================================================
+// Basis: installed topper line items only (type === "topper", status !==
+// "cancelled") — this is completed/committed revenue, matching how "Sales by
+// Manufacturer" already treats INVOICE_ITEMS on the dashboard.
+
+function soldTopperItems(): InvoiceItem[] {
+  return INVOICE_ITEMS.filter((it) => it.type === "topper" && it.status !== "cancelled");
+}
+
+export interface SalesBreakdownRow {
+  key: string;
+  count: number;
+  revenue: number;
+}
+
+/** Sales grouped by truck brand (Ford, Toyota, Chevy, RAM, GMC...). */
+export function getSalesByTruckBrand(): SalesBreakdownRow[] {
+  const map = new Map<string, SalesBreakdownRow>();
+  for (const it of soldTopperItems()) {
+    const row = map.get(it.truckBrand) ?? { key: it.truckBrand, count: 0, revenue: 0 };
+    row.count += 1;
+    row.revenue += it.price;
+    map.set(it.truckBrand, row);
+  }
+  return [...map.values()].sort((a, b) => b.revenue - a.revenue);
+}
+
+/** Sales grouped by truck model (F-150, Tacoma, Silverado...). */
+export function getSalesByTruckModel(): SalesBreakdownRow[] {
+  const map = new Map<string, SalesBreakdownRow>();
+  for (const it of soldTopperItems()) {
+    const key = `${it.truckBrand} ${it.truckModel}`;
+    const row = map.get(key) ?? { key, count: 0, revenue: 0 };
+    row.count += 1;
+    row.revenue += it.price;
+    map.set(key, row);
+  }
+  return [...map.values()].sort((a, b) => b.revenue - a.revenue);
+}
+
+/** Sales split by stock vs. custom-ordered toppers. */
+export function getSalesByOrderType(): SalesBreakdownRow[] {
+  const map = new Map<string, SalesBreakdownRow>();
+  for (const it of soldTopperItems()) {
+    const key = it.orderType === "custom_order" ? "Custom Order" : "Stock";
+    const row = map.get(key) ?? { key, count: 0, revenue: 0 };
+    row.count += 1;
+    row.revenue += it.price;
+    map.set(key, row);
+  }
+  return [...map.values()].sort((a, b) => b.revenue - a.revenue);
 }
