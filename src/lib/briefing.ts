@@ -17,12 +17,9 @@
  * gets delivered (email / SMS / dashboard card); the JSON powers UI.
  */
 
-import {
-  TODAY_INSTALLS,
-  INVENTORY,
-  DASHBOARD_METRICS,
-} from "@/lib/mock-data";
 import { listLeads, listAgentActions, logAgentAction } from "@/lib/db";
+import { getDashboardData } from "@/lib/data/dashboard";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export interface Briefing {
   date: string; // YYYY-MM-DD
@@ -42,32 +39,38 @@ export interface Briefing {
   recentAgentActivity: Array<{ agent: string; action: string; detail: string; at: string }>;
 }
 
-export function buildBriefing(): Briefing {
+export async function buildBriefing(): Promise<Briefing> {
   const now = new Date();
   const date = now.toISOString().split("T")[0];
 
-  // --- Installs (mock until calendar sync lands) ---
+  // --- Installs: real data, but see the note in src/lib/data/dashboard.ts —
+  // the legacy `appointments` table hasn't been used since 2014, so this is
+  // "most recent scheduled day in the legacy data," not literally today.
+  const dashboard = await getDashboardData();
   const byLocation: Briefing["installs"]["byLocation"] = {};
-  for (const inst of TODAY_INSTALLS) {
-    const key = inst.location === "suburban" ? "Suburban Toppers" : "Suburban Toppers - South";
+  for (const inst of dashboard.installs) {
+    const key = (inst.locationName ?? "Unspecified location").trim();
     byLocation[key] ??= [];
     byLocation[key].push({
-      time: inst.startTime,
+      time: inst.apptTime,
       client: inst.clientName,
-      topper: inst.topperDescription,
-      installer: inst.installer,
+      topper: inst.status ?? "",
+      installer: "",
     });
   }
-  for (const key of Object.keys(byLocation)) {
-    byLocation[key].sort((a, b) => a.time.localeCompare(b.time));
-  }
 
-  // --- Low stock ---
-  const lowStock = INVENTORY.filter((i) => i.qtyInStock <= i.reorderLevel).map((i) => ({
-    item: i.item,
-    qty: i.qtyInStock,
-    reorderLevel: i.reorderLevel,
-    location: i.location,
+  // --- Low stock (real, from items.amount_in_stock / restocking_level) ---
+  const { data: lowStockRows, error: lowStockError } = await supabaseAdmin.rpc("low_stock_items", {
+    p_limit: 10,
+  });
+  if (lowStockError) console.error("[briefing] low_stock_items failed:", lowStockError.message);
+  const lowStock = (lowStockRows ?? []).map((r: {
+    part_number: string | null; description: string; amount_in_stock: number; restocking_level: number | null;
+  }) => ({
+    item: r.part_number?.trim() || r.description,
+    qty: r.amount_in_stock,
+    reorderLevel: r.restocking_level ?? 0,
+    location: "Suburban Toppers",
   }));
 
   // --- Pipeline (LIVE from DB) ---
@@ -84,17 +87,19 @@ export function buildBriefing(): Briefing {
     if (new Date(l.created_at + "Z").getTime() > dayAgo) newLeadsLast24h++;
   }
 
-  // --- AR (mock until invoices persist) ---
+  // --- AR: real open-invoice balance. No real "30+ days overdue" aging is
+  // computed (see src/lib/data/dashboard.ts) — this is the total open
+  // balance across all not-yet-closed invoices, some of which go back years.
   const ar = {
-    overdue30: DASHBOARD_METRICS.arOverdue30,
-    delta: DASHBOARD_METRICS.arOverdueDelta,
+    overdue30: dashboard.openInvoiceBalance,
+    delta: 0,
   };
 
   // --- Needs a human ---
   const needsHuman: string[] = [];
-  if (ar.delta > 0) {
+  if (ar.overdue30 > 0) {
     needsHuman.push(
-      `AR overdue 30+ is up $${ar.delta.toLocaleString()} — review the worst accounts.`
+      `$${ar.overdue30.toLocaleString()} in open invoice balance across ${dashboard.openInvoiceCount.toLocaleString()} invoices — review the oldest accounts.`
     );
   }
   if (lowStock.length > 0) {
@@ -125,7 +130,7 @@ export function buildBriefing(): Briefing {
   const briefing: Briefing = {
     date,
     generatedAt: now.toISOString(),
-    installs: { total: TODAY_INSTALLS.length, byLocation },
+    installs: { total: dashboard.installs.length, byLocation },
     lowStock,
     pipeline: { counts, totalEstimatedValue, newLeadsLast24h },
     ar,
@@ -195,10 +200,9 @@ export function renderBriefingMarkdown(b: Briefing): string {
     lines.push("");
   }
 
-  // AR
-  const arrow = b.ar.delta > 0 ? "↑" : b.ar.delta < 0 ? "↓" : "→";
-  lines.push(`## 💰 AR Overdue 30+`);
-  lines.push(`$${b.ar.overdue30.toLocaleString()} (${arrow} $${Math.abs(b.ar.delta).toLocaleString()} vs. last month)`);
+  // AR / open balance
+  lines.push(`## 💰 Open Invoice Balance`);
+  lines.push(`$${b.ar.overdue30.toLocaleString()} across all open invoices (no aging breakdown available in the legacy data).`);
   lines.push("");
 
   // Needs human

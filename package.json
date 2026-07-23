@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
     "@tanstack/react-table": "^8.20.5",
     "better-sqlite3": "^12.11.1",
     "class-variance-authority": "^0.7.1",

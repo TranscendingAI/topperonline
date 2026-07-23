@@ -130,7 +130,7 @@ export function MorningBriefingCard() {
                 {briefing.pipeline.newLeadsLast24h} new lead{briefing.pipeline.newLeadsLast24h === 1 ? "" : "s"} in 24h
               </span>
               <span className="text-slate">
-                {" "}· pipeline value ${briefing.pipeline.totalEstimatedValue.toLocaleString()} · AR overdue $
+                {" "}· pipeline value ${briefing.pipeline.totalEstimatedValue.toLocaleString()} · open balance $
                 {briefing.ar.overdue30.toLocaleString()}
               </span>
             </div>

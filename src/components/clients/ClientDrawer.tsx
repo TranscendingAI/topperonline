@@ -3,69 +3,98 @@
 /**
  * ClientDrawer — slide-in side panel showing a single client's record.
  *
- * 4 tabs (per DESIGN.md Section 3):
- *   - Invoices: list of past + open invoices
- *   - Invoice Items: line items, grouped by invoice (collapsible)
- *   - Communications: SMS/email/call timeline
- *   - Notes: free-form notes log
+ * Wired to real data (Supabase): fetches /api/clients/[id] on open.
+ *
+ * 3 tabs (down from the Phase 1 mockup's 4 — see note below):
+ *   - Invoices: real invoice history for this client
+ *   - Invoice Items: real line items, grouped by invoice
+ *   - Contacts: real additional contacts (add_contacts table)
+ *
+ * Dropped "Communications" and "Notes" tabs from the original mockup — the
+ * legacy Access/MySQL database has no comms-log or notes table, so there's
+ * no real data to back those. Rather than fabricate a plausible-looking
+ * feed, they're left out until a real communications/notes feature exists.
  *
  * Width: 480px (compact per spec for Client Record).
  */
 
-import { useState } from "react";
-import { Phone, Mail, MapPin, FileText, Package, MessageSquare, StickyNote, ChevronDown, ChevronRight, Plus } from "lucide-react";
-import {
-  Drawer,
-  StatusBadge,
-  Button,
-  type StatusVariant,
-} from "@/components/ui";
+import { useEffect, useState } from "react";
+import { Phone, Mail, MapPin, FileText, Package, Users as UsersIcon, ChevronDown, ChevronRight } from "lucide-react";
+import { Drawer, StatusBadge, Button } from "@/components/ui";
 import { formatCurrency, formatPhone } from "@/lib/utils";
-import {
-  getInvoicesForClient,
-  getInvoiceItemsForClient,
-  getCommunicationsForClient,
-  getNotesForClient,
-  type Client,
-  type Invoice,
-  type InvoiceItem,
-  type Communication,
-  type Note,
-  statusToVariant,
-  statusLabel,
-  itemStatusToVariant,
-  itemStatusLabel,
-} from "@/lib/mock-data";
+import type { ClientDetail } from "@/lib/data/clients";
+import { statusToVariant } from "@/lib/mock-data";
 
-type TabKey = "invoices" | "items" | "comms" | "notes";
+type TabKey = "invoices" | "items" | "contacts";
 
 const TABS: { key: TabKey; label: string; icon: typeof FileText }[] = [
   { key: "invoices", label: "Invoices", icon: FileText },
   { key: "items", label: "Invoice Items", icon: Package },
-  { key: "comms", label: "Communications", icon: MessageSquare },
-  { key: "notes", label: "Notes", icon: StickyNote },
+  { key: "contacts", label: "Contacts", icon: UsersIcon },
 ];
 
 interface ClientDrawerProps {
-  client: Client | null;
+  /** Client id (string form of the numeric legacy id), or null when closed */
+  clientId: string | null;
   open: boolean;
   onClose: () => void;
 }
 
-export function ClientDrawer({ client, open, onClose }: ClientDrawerProps) {
+export function ClientDrawer({ clientId, open, onClose }: ClientDrawerProps) {
   const [tab, setTab] = useState<TabKey>("invoices");
+  const [detail, setDetail] = useState<ClientDetail | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  if (!client) return null;
+  useEffect(() => {
+    let cancelled = false;
+    if (!clientId) {
+      // Reset asynchronously (not directly in the effect body) — avoids the
+      // "setState synchronously within an effect" cascading-render lint.
+      Promise.resolve().then(() => {
+        if (!cancelled) setDetail(null);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+    fetch(`/api/clients/${clientId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: ClientDetail | null) => {
+        if (cancelled) return;
+        setDetail(data);
+        setTab("invoices");
+      })
+      .catch((e) => console.error("Failed to load client detail", e))
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    // Mark loading immediately via microtask (same reasoning as the reset
+    // branch above) rather than synchronously in the effect body.
+    Promise.resolve().then(() => {
+      if (!cancelled) setLoading(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId]);
 
-  const displayName = client.companyName ?? `${client.firstName} ${client.lastName}`;
-  const fullName = `${client.firstName} ${client.lastName}`;
-  const totalSpend = client.totalSpend ?? 0;
-  const invoices = getInvoicesForClient(client.id);
-  const items = getInvoiceItemsForClient(client.id);
-  const comms = getCommunicationsForClient(client.id);
-  const notes = getNotesForClient(client.id);
+  if (!clientId) return null;
 
-  // Group invoice items by invoice
+  if (loading || !detail) {
+    return (
+      <Drawer open={open} onClose={onClose} width={480} title="Loading…">
+        <div className="text-slate" style={{ fontSize: "14px", textAlign: "center", padding: "48px 0" }}>
+          Loading client record…
+        </div>
+      </Drawer>
+    );
+  }
+
+  const { client, invoices, items, contacts } = detail;
+  const displayName = client.companyName ?? `${client.firstName} ${client.lastName}`.trim();
+  const fullName = `${client.firstName} ${client.lastName}`.trim();
+  const totalSpend = invoices.reduce((sum, inv) => sum + (inv.total ?? 0), 0);
+
   const itemsByInvoice = groupBy(items, (it) => it.invoiceId);
 
   return (
@@ -73,7 +102,7 @@ export function ClientDrawer({ client, open, onClose }: ClientDrawerProps) {
       open={open}
       onClose={onClose}
       width={480}
-      title={displayName}
+      title={displayName || "Client"}
       subtitle={`${invoices.length} invoice${invoices.length === 1 ? "" : "s"} · ${formatCurrency(totalSpend)} lifetime`}
       headerActions={
         <Button variant="outlined" size="sm">
@@ -90,14 +119,10 @@ export function ClientDrawer({ client, open, onClose }: ClientDrawerProps) {
       {/* Client header info */}
       <div
         className="rounded-md"
-        style={{
-          padding: "16px",
-          background: "var(--color-fog)",
-          marginBottom: "16px",
-        }}
+        style={{ padding: "16px", background: "var(--color-fog)", marginBottom: "16px" }}
       >
         <div className="flex items-start" style={{ gap: "12px", flexDirection: "column" }}>
-          <InfoLine icon={Phone} text={formatPhone(client.phone)} />
+          {client.phone && <InfoLine icon={Phone} text={formatPhone(client.phone)} />}
           {client.email && <InfoLine icon={Mail} text={client.email} />}
           <InfoLine
             icon={MapPin}
@@ -120,7 +145,7 @@ export function ClientDrawer({ client, open, onClose }: ClientDrawerProps) {
             {client.type === "commercial" ? "Commercial" : "Residential"} client
           </div>
           <div className="text-carbon" style={{ fontSize: "14px", fontWeight: 500, marginTop: "2px" }}>
-            Primary contact: {fullName}
+            Primary contact: {fullName || "—"}
           </div>
         </div>
       </div>
@@ -128,11 +153,7 @@ export function ClientDrawer({ client, open, onClose }: ClientDrawerProps) {
       {/* Tab strip */}
       <div
         className="flex items-center"
-        style={{
-          gap: "4px",
-          borderBottom: "1px solid var(--color-chalk)",
-          marginBottom: "20px",
-        }}
+        style={{ gap: "4px", borderBottom: "1px solid var(--color-chalk)", marginBottom: "20px" }}
       >
         {TABS.map(({ key, label }) => {
           const active = tab === key;
@@ -157,12 +178,8 @@ export function ClientDrawer({ client, open, onClose }: ClientDrawerProps) {
                 <span
                   aria-hidden="true"
                   style={{
-                    position: "absolute",
-                    left: 0,
-                    right: 0,
-                    bottom: "-1px",
-                    height: "2px",
-                    background: "var(--color-signal-orange)",
+                    position: "absolute", left: 0, right: 0, bottom: "-1px",
+                    height: "2px", background: "var(--color-signal-orange)",
                   }}
                 />
               )}
@@ -171,11 +188,9 @@ export function ClientDrawer({ client, open, onClose }: ClientDrawerProps) {
         })}
       </div>
 
-      {/* Tab content */}
       {tab === "invoices" && <InvoicesTab invoices={invoices} />}
-      {tab === "items" && <ItemsTab items={items} itemsByInvoice={itemsByInvoice} />}
-      {tab === "comms" && <CommsTab comms={comms} />}
-      {tab === "notes" && <NotesTab notes={notes} />}
+      {tab === "items" && <ItemsTab itemsByInvoice={itemsByInvoice} />}
+      {tab === "contacts" && <ContactsTab contacts={contacts} />}
     </Drawer>
   );
 }
@@ -195,7 +210,7 @@ function InfoLine({ icon: Icon, text }: { icon: typeof Phone; text: string }) {
   );
 }
 
-function InvoicesTab({ invoices }: { invoices: Invoice[] }) {
+function InvoicesTab({ invoices }: { invoices: ClientDetail["invoices"] }) {
   if (!invoices.length) {
     return (
       <div className="text-slate" style={{ fontSize: "14px", textAlign: "center", padding: "32px 0" }}>
@@ -209,27 +224,21 @@ function InvoicesTab({ invoices }: { invoices: Invoice[] }) {
         <li
           key={inv.id}
           className="rounded-md"
-          style={{
-            padding: "12px",
-            border: "1px solid var(--color-chalk)",
-            background: "var(--color-paper)",
-          }}
+          style={{ padding: "12px", border: "1px solid var(--color-chalk)", background: "var(--color-paper)" }}
         >
           <div className="flex items-center justify-between" style={{ marginBottom: "4px" }}>
             <span className="text-carbon" style={{ fontSize: "13px", fontWeight: 600, fontFamily: "var(--font-inter)" }}>
               {inv.number}
             </span>
             <span className="text-carbon" style={{ fontSize: "14px", fontWeight: 600 }}>
-              {formatCurrency(inv.total)}
+              {formatCurrency(inv.total ?? 0)}
             </span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-slate" style={{ fontSize: "12px" }}>
-              {formatDate(inv.date)}
+              {inv.date ? formatDate(inv.date) : "No date"}
             </span>
-            <StatusBadge variant={statusToVariant(inv.status)}>
-              {statusLabel(inv.status)}
-            </StatusBadge>
+            <StatusBadge variant={statusToVariant(inv.statusVariant)}>{inv.statusLabel}</StatusBadge>
           </div>
         </li>
       ))}
@@ -237,18 +246,11 @@ function InvoicesTab({ invoices }: { invoices: Invoice[] }) {
   );
 }
 
-function ItemsTab({
-  items,
-  itemsByInvoice,
-}: {
-  items: InvoiceItem[];
-  itemsByInvoice: Map<string, InvoiceItem[]>;
-}) {
-  // Hook must precede any early return (rules of hooks)
-  const [openInvoices, setOpenInvoices] = useState<Set<string>>(
-    new Set([...itemsByInvoice.keys()][0] ?? "")
+function ItemsTab({ itemsByInvoice }: { itemsByInvoice: Map<number, ClientDetail["items"]> }) {
+  const [openInvoices, setOpenInvoices] = useState<Set<number>>(
+    new Set([...itemsByInvoice.keys()][0] != null ? [[...itemsByInvoice.keys()][0]] : [])
   );
-  if (!items.length) {
+  if (itemsByInvoice.size === 0) {
     return (
       <div className="text-slate" style={{ fontSize: "14px", textAlign: "center", padding: "32px 0" }}>
         No invoice items yet.
@@ -275,9 +277,7 @@ function ItemsTab({
               style={{
                 padding: "10px 12px",
                 background: open ? "var(--color-fog)" : "var(--color-paper)",
-                border: "none",
-                cursor: "pointer",
-                textAlign: "left",
+                border: "none", cursor: "pointer", textAlign: "left",
               }}
             >
               <span className="flex items-center" style={{ gap: "6px" }}>
@@ -287,14 +287,14 @@ function ItemsTab({
                   <ChevronRight size={14} strokeWidth={2} className="text-graphite" />
                 )}
                 <span className="text-carbon" style={{ fontSize: "13px", fontWeight: 600 }}>
-                  {invoiceId}
+                  Invoice #{invoiceId}
                 </span>
                 <span className="text-slate" style={{ fontSize: "12px" }}>
                   · {group.length} item{group.length === 1 ? "" : "s"}
                 </span>
               </span>
               <span className="text-carbon" style={{ fontSize: "13px", fontWeight: 600 }}>
-                {formatCurrency(group.reduce((sum, it) => sum + it.price, 0))}
+                {formatCurrency(group.reduce((sum, it) => sum + (it.price ?? 0), 0))}
               </span>
             </button>
             {open && (
@@ -310,18 +310,18 @@ function ItemsTab({
                         {it.description}
                       </div>
                       <div className="text-slate" style={{ fontSize: "12px", lineHeight: 1.2, marginTop: "2px" }}>
-                        {it.manufacturer} {it.model} · {it.color} · {it.type}
+                        {[it.manufacturer, it.color, it.category].filter(Boolean).join(" · ") || "—"}
                       </div>
                     </div>
                     <div className="shrink-0" style={{ marginLeft: "12px" }}>
                       <div className="text-carbon" style={{ fontSize: "13px", fontWeight: 600, textAlign: "right" }}>
-                        {formatCurrency(it.price)}
+                        {formatCurrency(it.price ?? 0)}
                       </div>
-                      <div style={{ marginTop: "2px" }}>
-                        <StatusBadge variant={itemStatusToVariant(it.status)}>
-                          {itemStatusLabel(it.status)}
-                        </StatusBadge>
-                      </div>
+                      {it.itemStatus && (
+                        <div className="text-slate" style={{ fontSize: "11px", marginTop: "2px", textAlign: "right" }}>
+                          {it.itemStatus}
+                        </div>
+                      )}
                     </div>
                   </li>
                 ))}
@@ -334,124 +334,32 @@ function ItemsTab({
   );
 }
 
-function CommsTab({ comms }: { comms: Communication[] }) {
-  if (!comms.length) {
+function ContactsTab({ contacts }: { contacts: ClientDetail["contacts"] }) {
+  if (!contacts.length) {
     return (
       <div className="text-slate" style={{ fontSize: "14px", textAlign: "center", padding: "32px 0" }}>
-        No communications logged yet.
+        No additional contacts on file for this client.
       </div>
     );
   }
   return (
-    <ol className="flex flex-col" style={{ gap: "16px", position: "relative" }}>
-      {/* Vertical timeline line */}
-      <span
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          left: "7px",
-          top: "8px",
-          bottom: "8px",
-          width: "1px",
-          background: "var(--color-chalk)",
-        }}
-      />
-      {comms.map((c) => {
-        const isInbound = c.direction === "inbound";
-        return (
-          <li key={c.id} className="flex" style={{ gap: "12px", position: "relative" }}>
-            <span
-              aria-hidden="true"
-              style={{
-                width: "15px",
-                height: "15px",
-                borderRadius: "50%",
-                background: isInbound ? "var(--color-paper)" : "var(--color-signal-orange)",
-                border: isInbound ? "1px solid var(--color-graphite)" : "1px solid var(--color-signal-orange)",
-                flexShrink: 0,
-                marginTop: "3px",
-                zIndex: 1,
-              }}
-            />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center" style={{ gap: "8px", marginBottom: "4px" }}>
-                <span className="text-carbon" style={{ fontSize: "12px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                  {c.channel}
-                </span>
-                <span className="text-slate" style={{ fontSize: "12px" }}>
-                  {isInbound ? "from " + c.from : "to " + c.to} · {formatDateTime(c.timestamp)}
-                </span>
-              </div>
-              <div
-                className="rounded-md text-carbon"
-                style={{
-                  padding: "10px 12px",
-                  background: "var(--color-fog)",
-                  fontSize: "13px",
-                  lineHeight: 1.5,
-                }}
-              >
-                {c.body}
-              </div>
-            </div>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-function NotesTab({ notes }: { notes: Note[] }) {
-  return (
-    <div className="flex flex-col" style={{ gap: "12px" }}>
-      <button
-        type="button"
-        className="rounded-md w-full flex items-center justify-center text-graphite transition-colors"
-        style={{
-          height: "40px",
-          background: "var(--color-fog)",
-          border: "1px dashed var(--color-chalk)",
-          fontSize: "13px",
-          fontWeight: 500,
-          gap: "6px",
-          cursor: "pointer",
-        }}
-      >
-        <Plus size={14} strokeWidth={2} />
-        Add a note
-      </button>
-      {notes.length === 0 ? (
-        <div className="text-slate" style={{ fontSize: "14px", textAlign: "center", padding: "16px 0" }}>
-          No notes yet for this client.
-        </div>
-      ) : (
-        <ul className="flex flex-col" style={{ gap: "8px" }}>
-          {notes.map((n) => (
-            <li
-              key={n.id}
-              className="rounded-md"
-              style={{
-                padding: "12px",
-                background: "var(--color-paper)",
-                border: "1px solid var(--color-chalk)",
-              }}
-            >
-              <div className="flex items-center justify-between" style={{ marginBottom: "6px" }}>
-                <span className="text-carbon" style={{ fontSize: "13px", fontWeight: 600 }}>
-                  {n.author}
-                </span>
-                <span className="text-slate" style={{ fontSize: "12px" }}>
-                  {formatDateTime(n.createdAt)}
-                </span>
-              </div>
-              <p className="text-carbon" style={{ fontSize: "13px", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
-                {n.body}
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <ul className="flex flex-col" style={{ gap: "8px" }}>
+      {contacts.map((c) => (
+        <li
+          key={c.id}
+          className="rounded-md"
+          style={{ padding: "12px", border: "1px solid var(--color-chalk)", background: "var(--color-paper)" }}
+        >
+          <div className="text-carbon" style={{ fontSize: "13px", fontWeight: 600 }}>
+            {`${c.firstName} ${c.lastName}`.trim() || "Unnamed contact"}
+            {c.title && <span className="text-slate" style={{ fontWeight: 400 }}> · {c.title}</span>}
+          </div>
+          <div className="text-slate" style={{ fontSize: "12px", marginTop: "4px" }}>
+            {[c.phone, c.email].filter(Boolean).join(" · ") || "No contact info"}
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -470,19 +378,5 @@ function groupBy<T, K>(arr: T[], key: (t: T) => K): Map<K, T[]> {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
-
-function formatDateTime(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) +
-    " · " +
-    d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-}
-
-// Silence unused-import warning for type-only re-imports
-export type { StatusVariant };

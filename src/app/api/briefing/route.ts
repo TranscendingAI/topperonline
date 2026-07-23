@@ -13,7 +13,7 @@ import { buildBriefing, renderBriefingMarkdown } from "@/lib/briefing";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const briefing = buildBriefing();
+  const briefing = await buildBriefing();
 
   const format = req.nextUrl.searchParams.get("format");
   if (format === "md" || format === "markdown") {
