@@ -21,7 +21,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { Menu, X, Settings, ChevronRight } from "lucide-react";
+import { Menu, X, Settings, ChevronRight, LogOut } from "lucide-react";
 import { NAV_ITEMS, type NavItem, type NavLeaf } from "@/lib/nav";
 import { cn, getInitials } from "@/lib/utils";
 
@@ -62,6 +62,15 @@ export function Sidebar() {
   const pathname = usePathname();
   const collapsed = useSyncExternalStore(subscribeCollapsed, readCollapsed, () => false);
   const setCollapsed = (fn: (c: boolean) => boolean) => writeCollapsed(fn(collapsed));
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      window.location.href = "/auth/pin";
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
 
   // Reflect state onto <html> so pages can respond (external system sync —
   // the legitimate use of an effect)
@@ -206,14 +215,26 @@ export function Sidebar() {
           )}
 
           {!collapsed && (
-            <button
-              type="button"
-              className="rounded-md flex items-center justify-center text-graphite hover:bg-fog active:bg-chalk transition-colors shrink-0"
-              style={{ width: `${ICON_BUTTON}px`, height: `${ICON_BUTTON}px` }}
-              aria-label="Settings"
-            >
-              <Settings size={18} strokeWidth={2} />
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-md flex items-center justify-center text-graphite hover:bg-fog active:bg-chalk transition-colors shrink-0"
+                style={{ width: `${ICON_BUTTON}px`, height: `${ICON_BUTTON}px` }}
+                aria-label="Log out"
+                title="Log out"
+              >
+                <LogOut size={18} strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                className="rounded-md flex items-center justify-center text-graphite hover:bg-fog active:bg-chalk transition-colors shrink-0"
+                style={{ width: `${ICON_BUTTON}px`, height: `${ICON_BUTTON}px` }}
+                aria-label="Settings"
+              >
+                <Settings size={18} strokeWidth={2} />
+              </button>
+            </div>
           )}
         </div>
       </div>
