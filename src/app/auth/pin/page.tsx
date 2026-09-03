@@ -18,6 +18,7 @@ export default function PinEntryPage() {
   useEffect(() => {
     // Focus first input on mount
     inputRefs[0].current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleChange = (index: number, value: string) => {
@@ -84,7 +85,7 @@ export default function PinEntryPage() {
         setPin(["", "", "", ""]);
         inputRefs[0].current?.focus();
       }
-    } catch (err) {
+    } catch {
       setError(true);
       setPin(["", "", "", ""]);
       inputRefs[0].current?.focus();
@@ -152,7 +153,7 @@ export default function PinEntryPage() {
 
         {/* Footer */}
         <div className="text-center mt-6 text-slate-500 text-sm">
-          Contact your administrator if you've forgotten your PIN
+          Contact your administrator if you&apos;ve forgotten your PIN
         </div>
       </div>
 
