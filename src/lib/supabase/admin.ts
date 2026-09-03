@@ -24,14 +24,14 @@ const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!url) {
-  throw new Error(
-    "Missing NEXT_PUBLIC_SUPABASE_URL — check .env.local"
+  console.warn(
+    "[supabase] NEXT_PUBLIC_SUPABASE_URL is not set in .env.local.\n" +
+      "The app will use mock data. To enable Supabase:\n" +
+      "Get it from: Supabase Dashboard -> Project Settings -> API"
   );
 }
 
 if (!serviceRoleKey) {
-  // Don't throw at import time (that would crash the whole app / build).
-  // Queries will fail with a clear error instead — see supabaseAdmin below.
   console.warn(
     "[supabase] SUPABASE_SERVICE_ROLE_KEY is not set in .env.local.\n" +
       "Get it from: Supabase Dashboard -> Project Settings -> API -> " +
@@ -39,6 +39,15 @@ if (!serviceRoleKey) {
   );
 }
 
-export const supabaseAdmin = createClient(url, serviceRoleKey ?? "MISSING_SERVICE_ROLE_KEY", {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
+// Create a client even if credentials are missing (with dummy values)
+// API routes should check if credentials are properly configured before using
+export const supabaseAdmin = createClient(
+  url || "https://placeholder.supabase.co", 
+  serviceRoleKey || "MISSING_SERVICE_ROLE_KEY",
+  {
+    auth: { persistSession: false, autoRefreshToken: false },
+  }
+);
+
+// Export a flag to check if Supabase is properly configured
+export const isSupabaseConfigured = !!(url && serviceRoleKey);
